@@ -2,7 +2,7 @@ import { ArrowDown, ArrowUp, ArrowUpDown } from "lucide-react";
 import Link from "next/link";
 
 import {
-  formatBusinessDate,
+  formatDateOnly,
   formatOperationalNumber,
   formatOperationalWeight,
 } from "@/features/shipments/lib/date-formatting";
@@ -134,10 +134,10 @@ export function ShipmentsTable({ items, filters }: ShipmentsTableProps) {
                 {shipment.carrierName ?? "Not available"}
               </td>
               <td className="text-muted-foreground px-4 py-3.5 text-sm">
-                {formatBusinessDate(shipment.dispatchDate)}
+                {formatDateOnly(shipment.dispatchDate)}
               </td>
               <td className="text-muted-foreground px-4 py-3.5 text-sm">
-                {formatBusinessDate(shipment.deliveryDate)}
+                {formatDateOnly(shipment.deliveryDate)}
               </td>
               <td className="text-muted-foreground px-4 py-3.5 text-sm">
                 {formatOperationalNumber(shipment.actualPallets)}

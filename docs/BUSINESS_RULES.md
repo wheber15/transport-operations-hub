@@ -87,6 +87,15 @@ Tasks:
 | End of planning | Generate the Dachser CSV.       |
 | End of planning | Handle late additions.          |
 
+### Goods Issue Date and Warehouse Processing
+
+`goodsIssueDate` determines the operational calendar day on which an order enters the warehouse processing workload.
+
+- Monday through Thursday, orders processed on their Goods Issue date normally leave the warehouse on the following day.
+- Friday, orders processed on their Goods Issue date normally leave the warehouse on Monday.
+
+The dashboard uses `goodsIssueDate` to identify today’s workload. It does not calculate, display, or otherwise implement the warehouse departure rule at this stage.
+
 ## 5. Shipment Rules
 
 A shipment may contain one or more deliveries.

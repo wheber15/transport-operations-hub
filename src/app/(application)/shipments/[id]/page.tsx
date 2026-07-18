@@ -6,10 +6,10 @@ import { EmptyState } from "@/components/shared/operations/empty-state";
 import { OperationsPanel } from "@/components/shared/operations/operations-panel";
 import { Button } from "@/components/ui/button";
 import {
-  formatAuditTimestamp,
-  formatBusinessDate,
+  formatDateOnly,
   formatOperationalNumber,
   formatOperationalWeight,
+  formatTimestamp,
 } from "@/features/shipments/lib/date-formatting";
 import {
   ShipmentNotFoundError,
@@ -100,13 +100,13 @@ export default async function ShipmentDetailPage({ params }: ShipmentDetailPageP
               <div className="grid gap-1 px-5 py-4 sm:grid-cols-2 sm:gap-4">
                 <dt className="text-muted-foreground text-sm">Dispatch Date</dt>
                 <dd className="text-foreground text-sm font-medium">
-                  {formatBusinessDate(shipment.dispatchDate)}
+                  {formatDateOnly(shipment.dispatchDate)}
                 </dd>
               </div>
               <div className="grid gap-1 px-5 py-4 sm:grid-cols-2 sm:gap-4">
                 <dt className="text-muted-foreground text-sm">Delivery Date</dt>
                 <dd className="text-foreground text-sm font-medium">
-                  {formatBusinessDate(shipment.deliveryDate)}
+                  {formatDateOnly(shipment.deliveryDate)}
                 </dd>
               </div>
               <div className="grid gap-1 px-5 py-4 sm:grid-cols-2 sm:gap-4">
@@ -183,7 +183,7 @@ export default async function ShipmentDetailPage({ params }: ShipmentDetailPageP
               <div>
                 <dt className="text-muted-foreground">Created</dt>
                 <dd className="text-foreground mt-1 font-medium">
-                  {formatAuditTimestamp(shipment.createdAt)}
+                  {formatTimestamp(shipment.createdAt)}
                 </dd>
               </div>
               <div>
@@ -195,7 +195,7 @@ export default async function ShipmentDetailPage({ params }: ShipmentDetailPageP
               <div>
                 <dt className="text-muted-foreground">Last updated</dt>
                 <dd className="text-foreground mt-1 font-medium">
-                  {formatAuditTimestamp(shipment.updatedAt)}
+                  {formatTimestamp(shipment.updatedAt)}
                 </dd>
               </div>
               <div>

@@ -12,6 +12,8 @@ This roadmap records approved project phases without assigning dates. Future sco
    - The initial Prisma schema, PostgreSQL migration history, and development-safe database client are in place.
 4. Read-only operational workspaces
    - Authentication, Orders, Shipments, and the live operational dashboard are implemented as approved read-only foundations.
+5. Delivery assignment planning
+   - Controlled assignment and unassignment of eligible deliveries is implemented for approved operational roles.
 
 ## Current Phase
 

@@ -68,3 +68,9 @@ The Shipments repository is the only Shipments-layer code that accesses Prisma. 
 Today’s Orders uses only active, non-deleted orders with a non-null `goodsIssueDate` within the current calendar day in `APP_TIME_ZONE`. `APP_TIME_ZONE` is required server-side configuration, validated before use; the date-only query uses the resulting operational calendar date without browser or server-local timezone conversion. Today’s Orders, Recent Shipments, Recent Activity, and Customers Requiring Attention are each limited to five records. All lists and counts exclude soft-deleted primary operational records, and shipment delivery counts include only active deliveries with active orders.
 
 The dashboard is read-only. It does not calculate KPIs, percentages, analytics, planning recommendations, inferred statuses, or warehouse departure dates. It does not claim automatic real-time refreshes.
+
+## Delivery Assignment Endpoints
+
+`POST /api/shipments/:id/deliveries` assigns an eligible delivery using `{ "deliveryId": "<uuid>" }`. `DELETE /api/shipments/:id/deliveries/:deliveryId` unassigns a delivery from that shipment. Both require an authenticated active user with the Administrator or Planner role. Requests return `{ data }` on success, `400` for invalid IDs or bodies, `401` for unauthenticated access, `403` for an unauthorized role, `404` for unavailable shipments or deliveries, `409` when the requested assignment state changed or the delivery is already assigned, and a safe `500` response for unexpected failures.
+
+Assignment and unassignment use transaction-safe conditional updates. Successful changes create a factual Activity record in the same transaction; failed requests create no activity. The current scope supports one delivery at a time only—no bulk actions, drag and drop, shipment creation, or delivery/order editing.

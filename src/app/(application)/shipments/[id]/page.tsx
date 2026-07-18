@@ -5,6 +5,9 @@ import { notFound } from "next/navigation";
 import { EmptyState } from "@/components/shared/operations/empty-state";
 import { OperationsPanel } from "@/components/shared/operations/operations-panel";
 import { Button } from "@/components/ui/button";
+import { requireAuthenticatedUser } from "@/features/auth/application/session";
+import { canManageDeliveryAssignments } from "@/features/auth/domain/roles";
+import { DeliveryAssignmentAction } from "@/features/shipments/components/delivery-assignment-action";
 import {
   formatDateOnly,
   formatOperationalNumber,
@@ -24,10 +27,18 @@ function DeliveryList({
   deliveries,
   emptyDescription,
   emptyTitle,
+  canManageAssignments,
+  shipmentId,
+  shipmentNumber,
+  type,
 }: {
   deliveries: Array<{ id: string; deliveryNumber: string; orderNumber: string }>;
   emptyDescription: string;
   emptyTitle: string;
+  canManageAssignments: boolean;
+  shipmentId: string;
+  shipmentNumber: string;
+  type: "assign" | "unassign";
 }) {
   if (deliveries.length === 0) {
     return <EmptyState description={emptyDescription} icon={ClipboardList} title={emptyTitle} />;
@@ -37,8 +48,19 @@ function DeliveryList({
     <ul className="divide-border/80 divide-y">
       {deliveries.map((delivery) => (
         <li className="flex items-center justify-between gap-4 px-5 py-4 text-sm" key={delivery.id}>
-          <span className="text-foreground font-medium">{delivery.deliveryNumber}</span>
-          <span className="text-muted-foreground">Order {delivery.orderNumber}</span>
+          <div>
+            <p className="text-foreground font-medium">{delivery.deliveryNumber}</p>
+            <p className="text-muted-foreground">Order {delivery.orderNumber}</p>
+          </div>
+          {canManageAssignments ? (
+            <DeliveryAssignmentAction
+              deliveryId={delivery.id}
+              deliveryNumber={delivery.deliveryNumber}
+              shipmentId={shipmentId}
+              shipmentNumber={shipmentNumber}
+              type={type}
+            />
+          ) : null}
         </li>
       ))}
     </ul>
@@ -47,6 +69,8 @@ function DeliveryList({
 
 export default async function ShipmentDetailPage({ params }: ShipmentDetailPageProps) {
   const { id } = await params;
+  const user = await requireAuthenticatedUser();
+  const canManageAssignments = canManageDeliveryAssignments(user.role);
   let shipment;
 
   try {
@@ -138,7 +162,7 @@ export default async function ShipmentDetailPage({ params }: ShipmentDetailPageP
             <div className="border-border/80 border-b px-5 py-4">
               <h2 className="text-foreground text-base font-semibold">Delivery assignment</h2>
               <p className="text-muted-foreground mt-1 text-sm">
-                Read-only preparation for future planning actions.
+                Assign eligible deliveries to this shipment.
               </p>
             </div>
             <div className="divide-border/80 divide-y">
@@ -150,6 +174,10 @@ export default async function ShipmentDetailPage({ params }: ShipmentDetailPageP
                   deliveries={shipment.assignedDeliveries}
                   emptyDescription="Deliveries will appear here when they are assigned to this shipment."
                   emptyTitle="No assigned deliveries"
+                  canManageAssignments={canManageAssignments}
+                  shipmentId={shipment.id}
+                  shipmentNumber={shipment.shipmentNumber}
+                  type="unassign"
                 />
               </div>
               <div>
@@ -160,6 +188,10 @@ export default async function ShipmentDetailPage({ params }: ShipmentDetailPageP
                   deliveries={shipment.availableDeliveries.items}
                   emptyDescription="Unassigned deliveries will appear here when they are available for planning."
                   emptyTitle="No available deliveries"
+                  canManageAssignments={canManageAssignments}
+                  shipmentId={shipment.id}
+                  shipmentNumber={shipment.shipmentNumber}
+                  type="assign"
                 />
                 {shipment.availableDeliveries.hasMore ? (
                   <p className="text-muted-foreground border-border/80 border-t px-5 py-3 text-sm">

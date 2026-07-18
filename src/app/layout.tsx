@@ -3,6 +3,7 @@ import type { Metadata } from "next";
 import { ThemeProvider } from "@/components/shared/providers/theme-provider";
 import { siteConfig } from "@/config/site";
 import { AuthSessionProvider } from "@/features/auth/components/auth-session-provider";
+import { Toaster } from "sonner";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -29,6 +30,7 @@ export default function RootLayout({
             enableSystem={false}
           >
             {children}
+            <Toaster richColors />
           </ThemeProvider>
         </AuthSessionProvider>
       </body>

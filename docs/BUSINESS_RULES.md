@@ -100,6 +100,8 @@ The dashboard uses `goodsIssueDate` to identify today’s workload. It does not 
 
 A shipment may contain one or more deliveries.
 
+A delivery may be assigned only when the delivery and its order are active, the target shipment is active, and the delivery is currently unassigned. A delivery may be unassigned only when the delivery and its order are active and it is assigned to the specified shipment. A delivery is never silently moved between shipments. A stale, already-assigned, already-unassigned, or wrong-shipment request is rejected as a conflict.
+
 Each shipment stores the following operational information:
 
 - Shipment Number

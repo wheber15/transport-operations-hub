@@ -216,3 +216,91 @@ export async function listAvailableDeliveries(limit = 100): Promise<AvailableDel
     hasMore,
   };
 }
+
+export async function assignDeliveryAtomically(input: {
+  actorId: string;
+  deliveryId: string;
+  shipmentId: string;
+}) {
+  return prisma.$transaction(async (transaction) => {
+    const shipment = await transaction.shipment.findFirst({
+      where: { id: input.shipmentId, deletedAt: null },
+      select: { shipmentNumber: true },
+    });
+    if (!shipment) return "shipment-not-found" as const;
+
+    const delivery = await transaction.delivery.findFirst({
+      where: { id: input.deliveryId, deletedAt: null, order: { is: { deletedAt: null } } },
+      select: { deliveryNumber: true },
+    });
+    if (!delivery) return "delivery-not-found" as const;
+
+    const result = await transaction.delivery.updateMany({
+      where: {
+        id: input.deliveryId,
+        deletedAt: null,
+        shipmentId: null,
+        order: { is: { deletedAt: null } },
+      },
+      data: { shipmentId: input.shipmentId, updatedById: input.actorId },
+    });
+    if (result.count !== 1) return "conflict" as const;
+
+    await transaction.activity.create({
+      data: {
+        entityType: "Shipment",
+        entityId: input.shipmentId,
+        action: "delivery_assigned",
+        description: `Delivery ${delivery.deliveryNumber} assigned to shipment ${shipment.shipmentNumber}.`,
+        actorId: input.actorId,
+        createdById: input.actorId,
+        updatedById: input.actorId,
+      },
+    });
+    return "assigned" as const;
+  });
+}
+
+export async function unassignDeliveryAtomically(input: {
+  actorId: string;
+  deliveryId: string;
+  shipmentId: string;
+}) {
+  return prisma.$transaction(async (transaction) => {
+    const shipment = await transaction.shipment.findFirst({
+      where: { id: input.shipmentId, deletedAt: null },
+      select: { shipmentNumber: true },
+    });
+    if (!shipment) return "shipment-not-found" as const;
+
+    const delivery = await transaction.delivery.findFirst({
+      where: { id: input.deliveryId, deletedAt: null, order: { is: { deletedAt: null } } },
+      select: { deliveryNumber: true },
+    });
+    if (!delivery) return "delivery-not-found" as const;
+
+    const result = await transaction.delivery.updateMany({
+      where: {
+        id: input.deliveryId,
+        deletedAt: null,
+        shipmentId: input.shipmentId,
+        order: { is: { deletedAt: null } },
+      },
+      data: { shipmentId: null, updatedById: input.actorId },
+    });
+    if (result.count !== 1) return "conflict" as const;
+
+    await transaction.activity.create({
+      data: {
+        entityType: "Shipment",
+        entityId: input.shipmentId,
+        action: "delivery_unassigned",
+        description: `Delivery ${delivery.deliveryNumber} removed from shipment ${shipment.shipmentNumber}.`,
+        actorId: input.actorId,
+        createdById: input.actorId,
+        updatedById: input.actorId,
+      },
+    });
+    return "unassigned" as const;
+  });
+}

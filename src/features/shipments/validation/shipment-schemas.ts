@@ -18,3 +18,14 @@ export const shipmentSearchFiltersSchema = z.object({
 });
 
 export const shipmentIdSchema = z.string().uuid();
+
+export const deliveryAssignmentSchema = z
+  .object({
+    deliveryId: z.string().uuid(),
+  })
+  .strict();
+
+export const deliveryAssignmentRouteSchema = z.object({
+  shipmentId: z.string().uuid(),
+  deliveryId: z.string().uuid(),
+});

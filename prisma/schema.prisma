@@ -1,0 +1,312 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model User {
+  id          String  @id @default(uuid()) @db.Uuid
+  displayName String
+  roleId      String? @db.Uuid
+
+  createdAt   DateTime  @default(now()) @db.Timestamptz(3)
+  updatedAt   DateTime  @updatedAt @db.Timestamptz(3)
+  createdById String?   @db.Uuid
+  updatedById String?   @db.Uuid
+  deletedAt   DateTime? @db.Timestamptz(3)
+
+  role Role? @relation("RoleUsers", fields: [roleId], references: [id], onDelete: SetNull)
+
+  createdBy User? @relation("UserCreatedUsers", fields: [createdById], references: [id], onDelete: SetNull)
+  updatedBy User? @relation("UserUpdatedUsers", fields: [updatedById], references: [id], onDelete: SetNull)
+
+  createdUsers         User[]         @relation("UserCreatedUsers")
+  updatedUsers         User[]         @relation("UserUpdatedUsers")
+  createdRoles         Role[]         @relation("UserCreatedRoles")
+  updatedRoles         Role[]         @relation("UserUpdatedRoles")
+  createdCustomers     Customer[]     @relation("UserCreatedCustomers")
+  updatedCustomers     Customer[]     @relation("UserUpdatedCustomers")
+  createdSalesReps     SalesRep[]     @relation("UserCreatedSalesReps")
+  updatedSalesReps     SalesRep[]     @relation("UserUpdatedSalesReps")
+  createdOrders        Order[]        @relation("UserCreatedOrders")
+  updatedOrders        Order[]        @relation("UserUpdatedOrders")
+  createdDeliveries    Delivery[]     @relation("UserCreatedDeliveries")
+  updatedDeliveries    Delivery[]     @relation("UserUpdatedDeliveries")
+  createdShipments     Shipment[]     @relation("UserCreatedShipments")
+  updatedShipments     Shipment[]     @relation("UserUpdatedShipments")
+  createdCarriers      Carrier[]      @relation("UserCreatedCarriers")
+  updatedCarriers      Carrier[]      @relation("UserUpdatedCarriers")
+  createdRepIssues     RepIssue[]     @relation("UserCreatedRepIssues")
+  updatedRepIssues     RepIssue[]     @relation("UserUpdatedRepIssues")
+  createdActivities    Activity[]     @relation("UserCreatedActivities")
+  updatedActivities    Activity[]     @relation("UserUpdatedActivities")
+  createdNotifications Notification[] @relation("UserCreatedNotifications")
+  updatedNotifications Notification[] @relation("UserUpdatedNotifications")
+  createdAttachments   Attachment[]   @relation("UserCreatedAttachments")
+  updatedAttachments   Attachment[]   @relation("UserUpdatedAttachments")
+  createdAppSettings   AppSetting[]   @relation("UserCreatedAppSettings")
+  updatedAppSettings   AppSetting[]   @relation("UserUpdatedAppSettings")
+  activities           Activity[]     @relation("ActivityActor")
+  notifications        Notification[] @relation("NotificationUser")
+
+  @@index([roleId])
+  @@index([displayName])
+  @@map("user")
+}
+
+model Role {
+  id   String @id @default(uuid()) @db.Uuid
+  name String @unique
+
+  createdAt   DateTime  @default(now()) @db.Timestamptz(3)
+  updatedAt   DateTime  @updatedAt @db.Timestamptz(3)
+  createdById String?   @db.Uuid
+  updatedById String?   @db.Uuid
+  deletedAt   DateTime? @db.Timestamptz(3)
+
+  users     User[] @relation("RoleUsers")
+  createdBy User?  @relation("UserCreatedRoles", fields: [createdById], references: [id], onDelete: SetNull)
+  updatedBy User?  @relation("UserUpdatedRoles", fields: [updatedById], references: [id], onDelete: SetNull)
+
+  @@map("role")
+}
+
+model Customer {
+  id         String  @id @default(uuid()) @db.Uuid
+  name       String
+  salesRepId String? @db.Uuid
+
+  createdAt   DateTime  @default(now()) @db.Timestamptz(3)
+  updatedAt   DateTime  @updatedAt @db.Timestamptz(3)
+  createdById String?   @db.Uuid
+  updatedById String?   @db.Uuid
+  deletedAt   DateTime? @db.Timestamptz(3)
+
+  salesRep  SalesRep?  @relation("SalesRepCustomers", fields: [salesRepId], references: [id], onDelete: SetNull)
+  orders    Order[]
+  repIssues RepIssue[]
+  createdBy User?      @relation("UserCreatedCustomers", fields: [createdById], references: [id], onDelete: SetNull)
+  updatedBy User?      @relation("UserUpdatedCustomers", fields: [updatedById], references: [id], onDelete: SetNull)
+
+  @@index([name])
+  @@index([salesRepId])
+  @@map("customer")
+}
+
+model SalesRep {
+  id   String @id @default(uuid()) @db.Uuid
+  name String
+
+  createdAt   DateTime  @default(now()) @db.Timestamptz(3)
+  updatedAt   DateTime  @updatedAt @db.Timestamptz(3)
+  createdById String?   @db.Uuid
+  updatedById String?   @db.Uuid
+  deletedAt   DateTime? @db.Timestamptz(3)
+
+  customers Customer[] @relation("SalesRepCustomers")
+  repIssues RepIssue[]
+  createdBy User?      @relation("UserCreatedSalesReps", fields: [createdById], references: [id], onDelete: SetNull)
+  updatedBy User?      @relation("UserUpdatedSalesReps", fields: [updatedById], references: [id], onDelete: SetNull)
+
+  @@index([name])
+  @@map("sales_rep")
+}
+
+model Order {
+  id             String    @id @default(uuid()) @db.Uuid
+  orderNumber    String    @unique
+  pickingNumber  String?
+  goodsIssueDate DateTime? @db.Date
+  customerId     String    @db.Uuid
+
+  createdAt   DateTime  @default(now()) @db.Timestamptz(3)
+  updatedAt   DateTime  @updatedAt @db.Timestamptz(3)
+  createdById String?   @db.Uuid
+  updatedById String?   @db.Uuid
+  deletedAt   DateTime? @db.Timestamptz(3)
+
+  customer   Customer   @relation(fields: [customerId], references: [id], onDelete: Restrict)
+  deliveries Delivery[]
+  createdBy  User?      @relation("UserCreatedOrders", fields: [createdById], references: [id], onDelete: SetNull)
+  updatedBy  User?      @relation("UserUpdatedOrders", fields: [updatedById], references: [id], onDelete: SetNull)
+
+  @@index([customerId])
+  @@index([pickingNumber])
+  @@index([goodsIssueDate])
+  @@map("order")
+}
+
+model Delivery {
+  id             String  @id @default(uuid()) @db.Uuid
+  deliveryNumber String  @unique
+  orderId        String  @db.Uuid
+  shipmentId     String? @db.Uuid
+
+  createdAt   DateTime  @default(now()) @db.Timestamptz(3)
+  updatedAt   DateTime  @updatedAt @db.Timestamptz(3)
+  createdById String?   @db.Uuid
+  updatedById String?   @db.Uuid
+  deletedAt   DateTime? @db.Timestamptz(3)
+
+  order     Order     @relation(fields: [orderId], references: [id], onDelete: Restrict)
+  shipment  Shipment? @relation(fields: [shipmentId], references: [id], onDelete: SetNull)
+  createdBy User?     @relation("UserCreatedDeliveries", fields: [createdById], references: [id], onDelete: SetNull)
+  updatedBy User?     @relation("UserUpdatedDeliveries", fields: [updatedById], references: [id], onDelete: SetNull)
+
+  @@index([orderId])
+  @@index([shipmentId])
+  @@map("delivery")
+}
+
+model Shipment {
+  id             String    @id @default(uuid()) @db.Uuid
+  shipmentNumber String    @unique
+  dispatchDate   DateTime? @db.Date
+  deliveryDate   DateTime? @db.Date
+  actualPallets  Int?
+  actualWeight   Decimal?  @db.Decimal(12, 3)
+  notes          String?
+  carrierId      String    @db.Uuid
+
+  createdAt   DateTime  @default(now()) @db.Timestamptz(3)
+  updatedAt   DateTime  @updatedAt @db.Timestamptz(3)
+  createdById String?   @db.Uuid
+  updatedById String?   @db.Uuid
+  deletedAt   DateTime? @db.Timestamptz(3)
+
+  carrier    Carrier    @relation(fields: [carrierId], references: [id], onDelete: Restrict)
+  deliveries Delivery[]
+  createdBy  User?      @relation("UserCreatedShipments", fields: [createdById], references: [id], onDelete: SetNull)
+  updatedBy  User?      @relation("UserUpdatedShipments", fields: [updatedById], references: [id], onDelete: SetNull)
+
+  @@index([carrierId])
+  @@index([dispatchDate])
+  @@map("shipment")
+}
+
+model Carrier {
+  id   String @id @default(uuid()) @db.Uuid
+  name String
+
+  createdAt   DateTime  @default(now()) @db.Timestamptz(3)
+  updatedAt   DateTime  @updatedAt @db.Timestamptz(3)
+  createdById String?   @db.Uuid
+  updatedById String?   @db.Uuid
+  deletedAt   DateTime? @db.Timestamptz(3)
+
+  shipments Shipment[]
+  createdBy User?      @relation("UserCreatedCarriers", fields: [createdById], references: [id], onDelete: SetNull)
+  updatedBy User?      @relation("UserUpdatedCarriers", fields: [updatedById], references: [id], onDelete: SetNull)
+
+  @@map("carrier")
+}
+
+model RepIssue {
+  id          String @id @default(uuid()) @db.Uuid
+  description String
+  salesRepId  String @db.Uuid
+  customerId  String @db.Uuid
+
+  createdAt   DateTime  @default(now()) @db.Timestamptz(3)
+  updatedAt   DateTime  @updatedAt @db.Timestamptz(3)
+  createdById String?   @db.Uuid
+  updatedById String?   @db.Uuid
+  deletedAt   DateTime? @db.Timestamptz(3)
+
+  salesRep  SalesRep @relation(fields: [salesRepId], references: [id], onDelete: Restrict)
+  customer  Customer @relation(fields: [customerId], references: [id], onDelete: Restrict)
+  createdBy User?    @relation("UserCreatedRepIssues", fields: [createdById], references: [id], onDelete: SetNull)
+  updatedBy User?    @relation("UserUpdatedRepIssues", fields: [updatedById], references: [id], onDelete: SetNull)
+
+  @@index([salesRepId])
+  @@index([customerId])
+  @@map("rep_issue")
+}
+
+model Activity {
+  id          String   @id @default(uuid()) @db.Uuid
+  entityType  String
+  entityId    String   @db.Uuid
+  action      String
+  description String
+  metadata    Json?
+  actorId     String   @db.Uuid
+  occurredAt  DateTime @default(now()) @db.Timestamptz(3)
+
+  createdAt   DateTime  @default(now()) @db.Timestamptz(3)
+  updatedAt   DateTime  @updatedAt @db.Timestamptz(3)
+  createdById String?   @db.Uuid
+  updatedById String?   @db.Uuid
+  deletedAt   DateTime? @db.Timestamptz(3)
+
+  actor     User  @relation("ActivityActor", fields: [actorId], references: [id], onDelete: Restrict)
+  createdBy User? @relation("UserCreatedActivities", fields: [createdById], references: [id], onDelete: SetNull)
+  updatedBy User? @relation("UserUpdatedActivities", fields: [updatedById], references: [id], onDelete: SetNull)
+
+  @@index([actorId])
+  @@index([entityType, entityId])
+  @@index([occurredAt])
+  @@map("activity")
+}
+
+model Notification {
+  id      String @id @default(uuid()) @db.Uuid
+  title   String
+  message String
+  userId  String @db.Uuid
+
+  createdAt   DateTime  @default(now()) @db.Timestamptz(3)
+  updatedAt   DateTime  @updatedAt @db.Timestamptz(3)
+  createdById String?   @db.Uuid
+  updatedById String?   @db.Uuid
+  deletedAt   DateTime? @db.Timestamptz(3)
+
+  user      User  @relation("NotificationUser", fields: [userId], references: [id], onDelete: Restrict)
+  createdBy User? @relation("UserCreatedNotifications", fields: [createdById], references: [id], onDelete: SetNull)
+  updatedBy User? @relation("UserUpdatedNotifications", fields: [updatedById], references: [id], onDelete: SetNull)
+
+  @@index([userId])
+  @@map("notification")
+}
+
+model Attachment {
+  id         String  @id @default(uuid()) @db.Uuid
+  entityType String
+  entityId   String  @db.Uuid
+  fileName   String
+  storageKey String
+  mimeType   String?
+  sizeBytes  Int?
+
+  createdAt   DateTime  @default(now()) @db.Timestamptz(3)
+  updatedAt   DateTime  @updatedAt @db.Timestamptz(3)
+  createdById String?   @db.Uuid
+  updatedById String?   @db.Uuid
+  deletedAt   DateTime? @db.Timestamptz(3)
+
+  createdBy User? @relation("UserCreatedAttachments", fields: [createdById], references: [id], onDelete: SetNull)
+  updatedBy User? @relation("UserUpdatedAttachments", fields: [updatedById], references: [id], onDelete: SetNull)
+
+  @@index([entityType, entityId])
+  @@map("attachment")
+}
+
+model AppSetting {
+  id    String @id @default(uuid()) @db.Uuid
+  key   String @unique
+  value Json
+
+  createdAt   DateTime  @default(now()) @db.Timestamptz(3)
+  updatedAt   DateTime  @updatedAt @db.Timestamptz(3)
+  createdById String?   @db.Uuid
+  updatedById String?   @db.Uuid
+  deletedAt   DateTime? @db.Timestamptz(3)
+
+  createdBy User? @relation("UserCreatedAppSettings", fields: [createdById], references: [id], onDelete: SetNull)
+  updatedBy User? @relation("UserUpdatedAppSettings", fields: [updatedById], references: [id], onDelete: SetNull)
+
+  @@map("app_setting")
+}

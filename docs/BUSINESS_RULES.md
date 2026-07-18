@@ -10,13 +10,13 @@ This document does not define technical architecture, database schema, API desig
 
 The transport operation is organised around the following business objects:
 
-| Object | Purpose |
-| --- | --- |
-| Customer | The customer associated with transport activity, orders, deliveries, and shipment history. |
-| Sales Representative (Rep) | The sales representative associated with the customer and related operational work. |
-| Order | The starting point for work that progresses through the operational lifecycle. |
-| Delivery | A delivery created from an order and assigned to a shipment for transport. |
-| Shipment | The transport record that groups one or more deliveries and captures transport details and actuals. |
+| Object                     | Purpose                                                                                             |
+| -------------------------- | --------------------------------------------------------------------------------------------------- |
+| Customer                   | The customer associated with transport activity, orders, deliveries, and shipment history.          |
+| Sales Representative (Rep) | The sales representative associated with the customer and related operational work.                 |
+| Order                      | The starting point for work that progresses through the operational lifecycle.                      |
+| Delivery                   | A delivery created from an order and assigned to a shipment for transport.                          |
+| Shipment                   | The transport record that groups one or more deliveries and captures transport details and actuals. |
 
 The business relationship is:
 
@@ -50,14 +50,14 @@ Delivery
 History
 ```
 
-| Stage | Purpose |
-| --- | --- |
-| Planning | The order is considered for transport planning. |
-| Picking | The order is in the picking stage. |
+| Stage            | Purpose                                                        |
+| ---------------- | -------------------------------------------------------------- |
+| Planning         | The order is considered for transport planning.                |
+| Picking          | The order is in the picking stage.                             |
 | Shipment Created | A shipment has been created for the order’s delivery activity. |
-| Dispatch | The shipment is dispatched for transport. |
-| Delivery | The delivery stage represents the transport outcome. |
-| History | Completed lifecycle activity is retained as history. |
+| Dispatch         | The shipment is dispatched for transport.                      |
+| Delivery         | The delivery stage represents the transport outcome.           |
+| History          | Completed lifecycle activity is retained as history.           |
 
 ## 4. Daily Operational Cycle
 
@@ -78,14 +78,14 @@ Tasks:
 
 ### Workflow B: Today's Planning
 
-| Timing | Activity |
-| --- | --- |
-| Morning | Process Woodies. |
-| Morning | Process B&Q. |
-| Midday | Process the 12:00 sales cutoff. |
-| Afternoon | Process the 14:00 final cutoff. |
-| End of planning | Generate the Dachser CSV. |
-| End of planning | Handle late additions. |
+| Timing          | Activity                        |
+| --------------- | ------------------------------- |
+| Morning         | Process Woodies.                |
+| Morning         | Process B&Q.                    |
+| Midday          | Process the 12:00 sales cutoff. |
+| Afternoon       | Process the 14:00 final cutoff. |
+| End of planning | Generate the Dachser CSV.       |
+| End of planning | Handle late additions.          |
 
 ## 5. Shipment Rules
 
@@ -117,10 +117,10 @@ The planning-pallet rule is:
 Always round up to the next planning pallet.
 
 | Weight | Estimated pallets |
-| --- | --- |
-| 749 kg | 1 |
-| 750 kg | 1 |
-| 751 kg | 2 |
+| ------ | ----------------- |
+| 749 kg | 1                 |
+| 750 kg | 1                 |
+| 751 kg | 2                 |
 
 ## 7. Dashboard Rules
 

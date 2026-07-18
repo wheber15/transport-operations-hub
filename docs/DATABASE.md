@@ -8,16 +8,16 @@ It is implementation-independent. The Prisma schema will be implemented from thi
 
 ## 2. Core Business Entities
 
-| Entity | Purpose |
-| --- | --- |
-| Customer | Represents a customer associated with orders, deliveries, shipments, and historical activity. |
-| Sales Representative | Represents the sales representative associated with a customer and related operational activity. |
-| Order | Represents an item of operational work that progresses through planning and into delivery activity. |
-| Delivery | Represents delivery activity belonging to an order and grouped into a shipment for transport. |
-| Shipment | Represents the transport record that groups deliveries and carries shipment-specific operational information. |
-| User | Represents an application user responsible for interacting with the system and its business records. |
-| Carrier | Represents the carrier associated with a shipment. |
-| Note | Represents a recorded note associated with a shipment. |
+| Entity               | Purpose                                                                                                       |
+| -------------------- | ------------------------------------------------------------------------------------------------------------- |
+| Customer             | Represents a customer associated with orders, deliveries, shipments, and historical activity.                 |
+| Sales Representative | Represents the sales representative associated with a customer and related operational activity.              |
+| Order                | Represents an item of operational work that progresses through planning and into delivery activity.           |
+| Delivery             | Represents delivery activity belonging to an order and grouped into a shipment for transport.                 |
+| Shipment             | Represents the transport record that groups deliveries and carries shipment-specific operational information. |
+| User                 | Represents an application user responsible for interacting with the system and its business records.          |
+| Carrier              | Represents the carrier associated with a shipment.                                                            |
+| Note                 | Represents a recorded note associated with a shipment.                                                        |
 
 ## 3. Entity Relationships
 
@@ -53,16 +53,16 @@ In business terms, a customer is associated with a Sales Representative and with
 
 Entity ownership follows the feature responsible for its business behaviour:
 
-| Entity | Owning feature or concern |
-| --- | --- |
-| Customer | Customers feature |
-| Sales Representative | Customers feature |
-| Order | Orders feature |
-| Delivery | Orders feature |
-| Shipment | Shipments feature |
-| Carrier | Shipments feature |
-| Note | Shipments feature |
-| User | Shared application identity concern |
+| Entity               | Owning feature or concern           |
+| -------------------- | ----------------------------------- |
+| Customer             | Customers feature                   |
+| Sales Representative | Customers feature                   |
+| Order                | Orders feature                      |
+| Delivery             | Orders feature                      |
+| Shipment             | Shipments feature                   |
+| Carrier              | Shipments feature                   |
+| Note                 | Shipments feature                   |
+| User                 | Shared application identity concern |
 
 Feature ownership defines where the business rules and lifecycle of an entity are maintained. A feature may reference another entity, but it must not take ownership of that entity’s business behaviour.
 

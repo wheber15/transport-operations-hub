@@ -51,13 +51,13 @@ This work should be easy to identify, progress, and resolve before it obscures t
 
 Today’s planning is structured around the current daily schedule:
 
-| Window | Planning activity |
-| --- | --- |
-| Morning | Plan Woodies and B&Q work. |
-| Midday | Work to the 12:00 cutoff. |
-| Afternoon | Work to the 14:00 cutoff. |
-| Output | Generate the Dachser CSV. |
-| Ongoing | Handle late additions. |
+| Window    | Planning activity          |
+| --------- | -------------------------- |
+| Morning   | Plan Woodies and B&Q work. |
+| Midday    | Work to the 12:00 cutoff.  |
+| Afternoon | Work to the 14:00 cutoff.  |
+| Output    | Generate the Dachser CSV.  |
+| Ongoing   | Handle late additions.     |
 
 The product should support planners in seeing what belongs in each window, progressing the plan through the cutoffs, producing the Dachser CSV, and managing late additions without losing visibility of the overall plan.
 
@@ -96,15 +96,15 @@ The application should make the current lifecycle stage visible and use it to he
 
 Every page should have a single clear responsibility.
 
-| Page | Purpose |
-| --- | --- |
+| Page      | Purpose             |
+| --------- | ------------------- |
 | Dashboard | Operations overview |
-| Orders | Process orders |
-| Shipments | Update shipments |
-| Customers | Customer history |
-| Reports | REP management |
-| Analytics | KPIs |
-| Settings | Configuration |
+| Orders    | Process orders      |
+| Shipments | Update shipments    |
+| Customers | Customer history    |
+| Reports   | REP management      |
+| Analytics | KPIs                |
+| Settings  | Configuration       |
 
 ### 2. Operational First
 

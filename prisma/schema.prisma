@@ -8,9 +8,13 @@ datasource db {
 }
 
 model User {
-  id          String  @id @default(uuid()) @db.Uuid
-  displayName String
-  roleId      String? @db.Uuid
+  id            String    @id @default(uuid()) @db.Uuid
+  displayName   String
+  email         String    @unique
+  emailVerified DateTime? @db.Timestamptz(3)
+  image         String?
+  passwordHash  String?
+  roleId        String?   @db.Uuid
 
   createdAt   DateTime  @default(now()) @db.Timestamptz(3)
   updatedAt   DateTime  @updatedAt @db.Timestamptz(3)
@@ -18,7 +22,9 @@ model User {
   updatedById String?   @db.Uuid
   deletedAt   DateTime? @db.Timestamptz(3)
 
-  role Role? @relation("RoleUsers", fields: [roleId], references: [id], onDelete: SetNull)
+  role     Role?     @relation("RoleUsers", fields: [roleId], references: [id], onDelete: SetNull)
+  accounts Account[]
+  sessions Session[]
 
   createdBy User? @relation("UserCreatedUsers", fields: [createdById], references: [id], onDelete: SetNull)
   updatedBy User? @relation("UserUpdatedUsers", fields: [updatedById], references: [id], onDelete: SetNull)
@@ -54,7 +60,50 @@ model User {
 
   @@index([roleId])
   @@index([displayName])
+  @@index([deletedAt])
   @@map("user")
+}
+
+model Account {
+  id                String  @id @default(uuid()) @db.Uuid
+  userId            String  @db.Uuid
+  type              String
+  provider          String
+  providerAccountId String
+  refreshToken      String?
+  accessToken       String?
+  expiresAt         Int?
+  tokenType         String?
+  scope             String?
+  idToken           String?
+  sessionState      String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+  @@index([userId])
+  @@map("account")
+}
+
+model Session {
+  id           String   @id @default(uuid()) @db.Uuid
+  sessionToken String   @unique
+  userId       String   @db.Uuid
+  expires      DateTime @db.Timestamptz(3)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("session")
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime @db.Timestamptz(3)
+
+  @@unique([identifier, token])
+  @@map("verification_token")
 }
 
 model Role {

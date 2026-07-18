@@ -2,10 +2,12 @@
 
 import { useEffect, useRef, useState } from "react";
 import { UserRound } from "lucide-react";
+import { signOut, useSession } from "next-auth/react";
 
 import { Button } from "@/components/ui/button";
 
 export function UserMenu() {
+  const { data: session, status } = useSession();
   const [open, setOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
 
@@ -51,10 +53,24 @@ export function UserMenu() {
           className="border-border bg-popover absolute top-[calc(100%+0.5rem)] right-0 z-30 w-64 rounded-xl border p-3 shadow-xl shadow-slate-950/15"
           role="menu"
         >
-          <p className="text-popover-foreground text-sm font-semibold">User account</p>
-          <p className="text-muted-foreground mt-1 text-xs leading-5">
-            Account controls will be available when authentication is configured.
+          <p className="text-popover-foreground text-sm font-semibold">
+            {status === "authenticated" ? session.user.name : "Loading account"}
           </p>
+          <p className="text-muted-foreground mt-1 text-xs leading-5">
+            {status === "authenticated"
+              ? (session.user.role ?? "No role assigned")
+              : "Loading session"}
+          </p>
+          <Button
+            className="mt-3 w-full"
+            disabled={status !== "authenticated"}
+            onClick={() => signOut({ callbackUrl: "/login" })}
+            size="sm"
+            type="button"
+            variant="outline"
+          >
+            Sign out
+          </Button>
         </div>
       ) : null}
     </div>

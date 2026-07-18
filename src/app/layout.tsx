@@ -1,8 +1,8 @@
 import type { Metadata } from "next";
 
-import { AppShell } from "@/components/shared/layout/app-shell";
 import { ThemeProvider } from "@/components/shared/providers/theme-provider";
 import { siteConfig } from "@/config/site";
+import { AuthSessionProvider } from "@/features/auth/components/auth-session-provider";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -21,14 +21,16 @@ export default function RootLayout({
   return (
     <html lang="en" suppressHydrationWarning className="h-full antialiased">
       <body className="min-h-full">
-        <ThemeProvider
-          attribute="class"
-          defaultTheme="dark"
-          disableTransitionOnChange
-          enableSystem={false}
-        >
-          <AppShell>{children}</AppShell>
-        </ThemeProvider>
+        <AuthSessionProvider>
+          <ThemeProvider
+            attribute="class"
+            defaultTheme="dark"
+            disableTransitionOnChange
+            enableSystem={false}
+          >
+            {children}
+          </ThemeProvider>
+        </AuthSessionProvider>
       </body>
     </html>
   );

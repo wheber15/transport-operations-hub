@@ -32,3 +32,18 @@ Development seed execution is refused in production. Seed user emails and passwo
 ## Future API Contracts
 
 When non-authentication API boundaries are introduced, they will follow [ARCHITECTURE.md](ARCHITECTURE.md): request validation at the boundary, business orchestration in services, and persistence through repositories. Contracts, authorization requirements, error responses, and versioning decisions must be documented before an API is exposed.
+
+## Orders Endpoints
+
+The authenticated Orders API provides read-only operational access:
+
+- `GET /api/orders` lists non-deleted orders and accepts `query`, `page`, `pageSize`, `sortBy`, and `sortDirection` query parameters. Defaults are page `1`, page size `25`, order-number ascending sort; page size is limited to `100`.
+- `GET /api/orders/:id` returns one non-deleted order with its approved customer, delivery, and audit information.
+
+Order list searching is performed server-side across order number, picking number, and customer name. Supported sorting is limited to order number, customer, picking number, and goods issue date. Both endpoints require the current authenticated user helper and return a consistent `data` or `error` response envelope. Invalid query or identifier input returns `400`; a missing order returns `404`; unauthenticated access returns `401`; unexpected failures return generic `500` responses without infrastructure details.
+
+## Orders Service and Repository Boundaries
+
+The Orders repository is the only Orders-layer code that queries Prisma. The Orders service validates request inputs, coordinates repository calls, exposes the established not-found behaviour, and reserves an activity-recorder boundary for future approved mutations. Pages and route handlers do not query Prisma directly.
+
+Zod schemas own order search, create, and update input validation. Create and update schemas cover only the already-approved order fields; mutation endpoints are not exposed until their business rules are approved. The current Orders scope is read-only.

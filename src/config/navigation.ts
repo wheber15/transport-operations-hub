@@ -28,7 +28,7 @@ export const primaryNavigation: readonly NavigationItem[] = [
     href: "/orders",
     icon: ClipboardList,
     label: "Orders",
-    available: false,
+    available: true,
   },
   {
     href: "/shipments",
@@ -69,5 +69,11 @@ export const primaryNavigation: readonly NavigationItem[] = [
 ];
 
 export function getNavigationItem(pathname: string): NavigationItem | undefined {
-  return primaryNavigation.find((item) => item.href === pathname);
+  return primaryNavigation.find(
+    (item) => item.href === pathname || (item.href !== "/" && pathname.startsWith(`${item.href}/`))
+  );
+}
+
+export function isNavigationItemActive(item: NavigationItem, pathname: string) {
+  return item.href === pathname || (item.href !== "/" && pathname.startsWith(`${item.href}/`));
 }

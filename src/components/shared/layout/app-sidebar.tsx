@@ -4,7 +4,7 @@ import Link from "next/link";
 import { PanelLeftClose, PanelLeftOpen, Route, X } from "lucide-react";
 import { usePathname } from "next/navigation";
 
-import { primaryNavigation } from "@/config/navigation";
+import { isNavigationItemActive, primaryNavigation } from "@/config/navigation";
 import { siteConfig } from "@/config/site";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -90,7 +90,7 @@ export function AppSidebar({
         <nav aria-label="Primary navigation" className="mt-8 flex flex-1 flex-col gap-1">
           {primaryNavigation.map((item) => {
             const Icon = item.icon;
-            const active = item.href === pathname;
+            const active = isNavigationItemActive(item, pathname);
             const content = (
               <>
                 <Icon aria-hidden="true" className="size-[18px] shrink-0" />

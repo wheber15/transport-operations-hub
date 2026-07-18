@@ -34,7 +34,7 @@ export const primaryNavigation: readonly NavigationItem[] = [
     href: "/shipments",
     icon: Truck,
     label: "Shipments",
-    available: false,
+    available: true,
   },
   {
     href: "/customers",

@@ -47,3 +47,16 @@ Order list searching is performed server-side across order number, picking numbe
 The Orders repository is the only Orders-layer code that queries Prisma. The Orders service validates request inputs, coordinates repository calls, exposes the established not-found behaviour, and reserves an activity-recorder boundary for future approved mutations. Pages and route handlers do not query Prisma directly.
 
 Zod schemas own order search, create, and update input validation. Create and update schemas cover only the already-approved order fields; mutation endpoints are not exposed until their business rules are approved. The current Orders scope is read-only.
+
+## Shipments Endpoints
+
+The authenticated Shipments API provides read-only operational access:
+
+- `GET /api/shipments` returns a paginated shipment list.
+- `GET /api/shipments/:id` returns a shipment, its assigned deliveries, and the read-only list of available deliveries for future planning.
+
+Both endpoints require an authenticated, active database user and return `401` when one is not present. The collection endpoint accepts `query`, `page`, `pageSize`, `sortBy`, and `sortDirection`. Search is server-side, case-insensitive, trimmed, and bounded to shipment numbers and carrier names. Pagination defaults to page `1` and page size `25`; page size is limited to `100`. Sorting is allowlisted to shipment number, carrier, dispatch date, delivery date, actual pallets, actual weight, and delivery count; all results use a stable secondary identifier order. Invalid query parameters return `400`.
+
+Successful responses use a `{ data, meta? }` envelope. Detail requests return `404` for a missing non-deleted shipment and `400` for an invalid identifier. Unexpected failures return generic `500` error envelopes without infrastructure details. The shipment detail read model includes shipment notes, approved audit metadata, and delivery read models that expose delivery and order numbers rather than unrelated identity data. Available deliveries are limited to the first `100` active, unassigned deliveries and indicate when more records exist. Shipment status is not persisted in the current schema, so the workspace presents it only as a neutral unavailable value.
+
+The Shipments repository is the only Shipments-layer code that accesses Prisma. The service validates request input, coordinates repository calls, exposes the established not-found behaviour, and reserves an activity-recorder boundary for future approved mutations. Route handlers and pages do not access Prisma directly. The current Shipments scope is read-only: it includes no assignment actions, planning automation, exports, or mutation endpoints. Delivery count is derived from active, non-deleted deliveries with active orders. Total pallets and total weight use shipment-level persisted actual fields only; delivery-level pallet and weight fields do not exist in the current data model.

@@ -1,11 +1,16 @@
 import { Filter, Search } from "lucide-react";
 import Link from "next/link";
+import type { Metadata } from "next";
 
 import { EmptyState } from "@/components/shared/operations/empty-state";
 import { OperationsPanel } from "@/components/shared/operations/operations-panel";
 import { Button } from "@/components/ui/button";
 import { OrdersTable } from "@/features/orders/components/orders-table";
 import { getValidatedOrderFilters, listOrders } from "@/features/orders/application/order-service";
+
+export const metadata: Metadata = {
+  title: "Orders",
+};
 
 type OrdersPageProps = {
   searchParams: Promise<Record<string, string | string[] | undefined>>;

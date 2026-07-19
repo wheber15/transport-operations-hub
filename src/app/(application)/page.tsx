@@ -1,9 +1,14 @@
 import { CalendarClock } from "lucide-react";
+import type { Metadata } from "next";
 import { connection } from "next/server";
 
 import { DashboardWorkspace } from "@/features/dashboard/components/dashboard-workspace";
 import { getDashboard } from "@/features/dashboard/services/dashboard-service";
 import { getOperationalHour, getOperationalTimeZone } from "@/server/config/operational-timezone";
+
+export const metadata: Metadata = {
+  title: "Dashboard",
+};
 
 function getGreeting(hour: number) {
   if (hour < 12) {

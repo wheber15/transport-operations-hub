@@ -1,7 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { PanelLeftClose, PanelLeftOpen, Route, X } from "lucide-react";
+import Image from "next/image";
+import { PanelLeftClose, PanelLeftOpen, X } from "lucide-react";
 import { usePathname } from "next/navigation";
 
 import { isNavigationItemActive, primaryNavigation } from "@/config/navigation";
@@ -49,16 +50,26 @@ export function AppSidebar({
             href="/"
             onClick={mobileOpen ? onMobileOpenChange : undefined}
           >
-            <span className="bg-primary text-primary-foreground flex size-8 shrink-0 items-center justify-center rounded-lg shadow-sm">
-              <Route aria-hidden="true" className="size-4" />
-            </span>
+            <Image
+              alt="AXon"
+              className="size-8 shrink-0"
+              height={32}
+              priority
+              src="/brand/axon-app-icon.svg"
+              width={32}
+            />
             <span
               className={cn(
                 "truncate text-sm font-semibold tracking-tight transition-opacity",
                 collapsed && "lg:pointer-events-none lg:w-0 lg:opacity-0"
               )}
             >
-              Transport Hub
+              <span className="flex flex-col leading-tight">
+                <span>AXon</span>
+                <span className="text-muted-foreground mt-0.5 text-[10px] font-medium tracking-normal">
+                  {siteConfig.workspaceName}
+                </span>
+              </span>
             </span>
           </Link>
           <Button

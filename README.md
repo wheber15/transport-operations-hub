@@ -81,11 +81,12 @@ public/               Static public assets
 - [Logical Data Model](docs/DATABASE.md)
 - [Production Database Blueprint](docs/DATABASE_V2.md)
 - [API Architecture](docs/API.md)
+- [Brand Guidelines](docs/BRAND.md)
 - [Roadmap](docs/ROADMAP.md)
 
 ## Current Development Phase
 
-The project is ready to begin approved feature implementation on top of the established application and database foundations.
+AXon is progressing through approved operational workspace and planning foundations.
 
 ## Contributing
 

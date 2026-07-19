@@ -8,10 +8,15 @@ import "./globals.css";
 
 export const metadata: Metadata = {
   title: {
-    default: siteConfig.name,
+    default: `${siteConfig.applicationName} — ${siteConfig.workspaceName}`,
     template: `%s | ${siteConfig.name}`,
   },
   description: siteConfig.description,
+  applicationName: siteConfig.applicationName,
+  icons: {
+    icon: "/brand/favicon.svg",
+    apple: "/brand/axon-app-icon.svg",
+  },
 };
 
 export default function RootLayout({

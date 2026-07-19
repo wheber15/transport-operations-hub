@@ -1,5 +1,6 @@
 import { Filter, Search } from "lucide-react";
 import Link from "next/link";
+import type { Metadata } from "next";
 
 import { EmptyState } from "@/components/shared/operations/empty-state";
 import { OperationsPanel } from "@/components/shared/operations/operations-panel";
@@ -9,6 +10,10 @@ import {
   getValidatedShipmentFilters,
   listShipments,
 } from "@/features/shipments/services/shipment-service";
+
+export const metadata: Metadata = {
+  title: "Shipments",
+};
 
 type ShipmentsPageProps = {
   searchParams: Promise<Record<string, string | string[] | undefined>>;

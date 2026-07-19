@@ -87,3 +87,17 @@ Preview results return approved operational fields only: delivery number, order 
 Commit uses partial-success semantics. It rechecks active target-shipment, delivery, order, and assignment state in a transaction, conditionally assigns only deliveries that remain active and unassigned, and returns a complete ordered result and summary. The summary reports `requestedCount`, `uniqueCount`, `duplicateInputCount`, `assignedCount`, `alreadyAssignedToTargetCount`, `assignedElsewhereCount`, `notFoundCount`, `unavailableDeliveryCount`, `unavailableOrderCount`, `unavailableCount`, and `skippedCount`. `assignedCount + skippedCount` always equals `uniqueCount`; duplicate input is separate and does not affect that equation. A concurrent or stale assignment is skipped rather than silently reassigned. Every successful assignment creates a factual Activity record in the same transaction; an unexpected database or Activity failure rolls back the transaction. Per-item operational conflicts remain part of a successful `200` response. Invalid requests return `400`, unauthenticated requests `401`, unauthorized roles `403`, unavailable target shipments `404`, and unexpected failures a safe `500` envelope.
 
 The import has no SAP API integration, schedule import, pallet capture, low-weight warning, automatic grouping, or automatic material classification. Gross order weight is not persisted in the current schema, so low-weight guidance is intentionally unavailable.
+
+# Data Management Import Endpoints
+
+All Data Management endpoints require an active Administrator or Planner session.
+
+- `POST /api/data-imports/upload` accepts `multipart/form-data` with `file` and `importType`.
+- `GET /api/data-imports` returns recent batch history.
+- `GET /api/data-imports/:id` returns safe batch workflow metadata and sheet summaries.
+- `POST /api/data-imports/:id/sheet` accepts `{ "sheetName": string }`.
+- `POST /api/data-imports/:id/header` accepts `{ "headerRow": number }`.
+- `POST /api/data-imports/:id/mapping` accepts import type, selected sheet/header, and an allowlisted mapping.
+- `POST /api/data-imports/:id/preview` uses staged server data only.
+- `POST /api/data-imports/:id/commit` accepts no row payload and revalidates server-side.
+- `GET /api/data-imports/:id/results` returns bounded safe results; `results.csv` exports formula-safe CSV.

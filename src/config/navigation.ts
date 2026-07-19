@@ -3,6 +3,7 @@ import {
   Bot,
   ChartColumn,
   ClipboardList,
+  Database,
   LayoutDashboard,
   Settings,
   Truck,
@@ -18,6 +19,12 @@ export type NavigationItem = {
 };
 
 export const primaryNavigation: readonly NavigationItem[] = [
+  {
+    href: "/data-management",
+    icon: Database,
+    label: "Data Management",
+    available: true,
+  },
   {
     href: "/",
     icon: LayoutDashboard,

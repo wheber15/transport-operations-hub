@@ -25,4 +25,6 @@ Pallet capture UI and APIs remain future work. SAP gross-weight parsing and cust
 
 ## Future Planning
 
+Spreadsheet import and data-management foundations are implemented. Direct SAP integration, automatic synchronization, automatic cleanup scheduling, manual data editing, and pallet capture remain future work.
+
 Future phases will be documented here after their product scope, architecture impact, and delivery priorities are approved.

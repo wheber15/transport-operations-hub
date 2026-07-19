@@ -29,36 +29,43 @@ model User {
   createdBy User? @relation("UserCreatedUsers", fields: [createdById], references: [id], onDelete: SetNull)
   updatedBy User? @relation("UserUpdatedUsers", fields: [updatedById], references: [id], onDelete: SetNull)
 
-  createdUsers         User[]         @relation("UserCreatedUsers")
-  updatedUsers         User[]         @relation("UserUpdatedUsers")
-  createdRoles         Role[]         @relation("UserCreatedRoles")
-  updatedRoles         Role[]         @relation("UserUpdatedRoles")
-  createdCustomers     Customer[]     @relation("UserCreatedCustomers")
-  updatedCustomers     Customer[]     @relation("UserUpdatedCustomers")
-  createdSalesReps     SalesRep[]     @relation("UserCreatedSalesReps")
-  updatedSalesReps     SalesRep[]     @relation("UserUpdatedSalesReps")
-  createdOrders        Order[]        @relation("UserCreatedOrders")
-  updatedOrders        Order[]        @relation("UserUpdatedOrders")
-  createdDeliveries    Delivery[]     @relation("UserCreatedDeliveries")
-  updatedDeliveries    Delivery[]     @relation("UserUpdatedDeliveries")
-  createdPallets       Pallet[]       @relation("UserCreatedPallets")
-  updatedPallets       Pallet[]       @relation("UserUpdatedPallets")
-  createdShipments     Shipment[]     @relation("UserCreatedShipments")
-  updatedShipments     Shipment[]     @relation("UserUpdatedShipments")
-  createdCarriers      Carrier[]      @relation("UserCreatedCarriers")
-  updatedCarriers      Carrier[]      @relation("UserUpdatedCarriers")
-  createdRepIssues     RepIssue[]     @relation("UserCreatedRepIssues")
-  updatedRepIssues     RepIssue[]     @relation("UserUpdatedRepIssues")
-  createdActivities    Activity[]     @relation("UserCreatedActivities")
-  updatedActivities    Activity[]     @relation("UserUpdatedActivities")
-  createdNotifications Notification[] @relation("UserCreatedNotifications")
-  updatedNotifications Notification[] @relation("UserUpdatedNotifications")
-  createdAttachments   Attachment[]   @relation("UserCreatedAttachments")
-  updatedAttachments   Attachment[]   @relation("UserUpdatedAttachments")
-  createdAppSettings   AppSetting[]   @relation("UserCreatedAppSettings")
-  updatedAppSettings   AppSetting[]   @relation("UserUpdatedAppSettings")
-  activities           Activity[]     @relation("ActivityActor")
-  notifications        Notification[] @relation("NotificationUser")
+  createdUsers          User[]                @relation("UserCreatedUsers")
+  updatedUsers          User[]                @relation("UserUpdatedUsers")
+  createdRoles          Role[]                @relation("UserCreatedRoles")
+  updatedRoles          Role[]                @relation("UserUpdatedRoles")
+  createdCustomers      Customer[]            @relation("UserCreatedCustomers")
+  updatedCustomers      Customer[]            @relation("UserUpdatedCustomers")
+  createdSalesReps      SalesRep[]            @relation("UserCreatedSalesReps")
+  updatedSalesReps      SalesRep[]            @relation("UserUpdatedSalesReps")
+  createdOrders         Order[]               @relation("UserCreatedOrders")
+  updatedOrders         Order[]               @relation("UserUpdatedOrders")
+  createdDeliveries     Delivery[]            @relation("UserCreatedDeliveries")
+  updatedDeliveries     Delivery[]            @relation("UserUpdatedDeliveries")
+  createdPallets        Pallet[]              @relation("UserCreatedPallets")
+  updatedPallets        Pallet[]              @relation("UserUpdatedPallets")
+  createdSchedules      OperationalSchedule[] @relation("UserCreatedOperationalSchedules")
+  updatedSchedules      OperationalSchedule[] @relation("UserUpdatedOperationalSchedules")
+  uploadedImportBatches ImportBatch[]         @relation("ImportBatchUploadedBy")
+  createdImportBatches  ImportBatch[]         @relation("UserCreatedImportBatches")
+  updatedImportBatches  ImportBatch[]         @relation("UserUpdatedImportBatches")
+  createdImportRows     ImportRow[]           @relation("UserCreatedImportRows")
+  updatedImportRows     ImportRow[]           @relation("UserUpdatedImportRows")
+  createdShipments      Shipment[]            @relation("UserCreatedShipments")
+  updatedShipments      Shipment[]            @relation("UserUpdatedShipments")
+  createdCarriers       Carrier[]             @relation("UserCreatedCarriers")
+  updatedCarriers       Carrier[]             @relation("UserUpdatedCarriers")
+  createdRepIssues      RepIssue[]            @relation("UserCreatedRepIssues")
+  updatedRepIssues      RepIssue[]            @relation("UserUpdatedRepIssues")
+  createdActivities     Activity[]            @relation("UserCreatedActivities")
+  updatedActivities     Activity[]            @relation("UserUpdatedActivities")
+  createdNotifications  Notification[]        @relation("UserCreatedNotifications")
+  updatedNotifications  Notification[]        @relation("UserUpdatedNotifications")
+  createdAttachments    Attachment[]          @relation("UserCreatedAttachments")
+  updatedAttachments    Attachment[]          @relation("UserUpdatedAttachments")
+  createdAppSettings    AppSetting[]          @relation("UserCreatedAppSettings")
+  updatedAppSettings    AppSetting[]          @relation("UserUpdatedAppSettings")
+  activities            Activity[]            @relation("ActivityActor")
+  notifications         Notification[]        @relation("NotificationUser")
 
   @@index([roleId])
   @@index([displayName])
@@ -171,6 +178,9 @@ model Order {
   orderNumber    String    @unique
   pickingNumber  String?
   goodsIssueDate DateTime? @db.Date
+  shipToNumber   String?
+  routeCode      String?
+  grossWeightKg  Decimal?  @db.Decimal(12, 3)
   customerId     String    @db.Uuid
 
   createdAt   DateTime  @default(now()) @db.Timestamptz(3)
@@ -187,6 +197,8 @@ model Order {
   @@index([customerId])
   @@index([pickingNumber])
   @@index([goodsIssueDate])
+  @@index([shipToNumber])
+  @@index([routeCode])
   @@map("order")
 }
 
@@ -202,15 +214,101 @@ model Delivery {
   updatedById String?   @db.Uuid
   deletedAt   DateTime? @db.Timestamptz(3)
 
-  order     Order     @relation(fields: [orderId], references: [id], onDelete: Restrict)
-  shipment  Shipment? @relation(fields: [shipmentId], references: [id], onDelete: SetNull)
-  pallets   Pallet[]
-  createdBy User?     @relation("UserCreatedDeliveries", fields: [createdById], references: [id], onDelete: SetNull)
-  updatedBy User?     @relation("UserUpdatedDeliveries", fields: [updatedById], references: [id], onDelete: SetNull)
+  order                Order                 @relation(fields: [orderId], references: [id], onDelete: Restrict)
+  shipment             Shipment?             @relation(fields: [shipmentId], references: [id], onDelete: SetNull)
+  pallets              Pallet[]
+  operationalSchedules OperationalSchedule[]
+  createdBy            User?                 @relation("UserCreatedDeliveries", fields: [createdById], references: [id], onDelete: SetNull)
+  updatedBy            User?                 @relation("UserUpdatedDeliveries", fields: [updatedById], references: [id], onDelete: SetNull)
 
   @@index([orderId])
   @@index([shipmentId])
   @@map("delivery")
+}
+
+model OperationalSchedule {
+  id                    String   @id @default(uuid()) @db.Uuid
+  deliveryId            String   @db.Uuid
+  source                String
+  scheduledDispatchDate DateTime @db.Date
+  sourceReference       String?
+
+  createdAt   DateTime  @default(now()) @db.Timestamptz(3)
+  updatedAt   DateTime  @updatedAt @db.Timestamptz(3)
+  createdById String?   @db.Uuid
+  updatedById String?   @db.Uuid
+  deletedAt   DateTime? @db.Timestamptz(3)
+
+  delivery  Delivery @relation(fields: [deliveryId], references: [id], onDelete: Restrict)
+  createdBy User?    @relation("UserCreatedOperationalSchedules", fields: [createdById], references: [id], onDelete: SetNull)
+  updatedBy User?    @relation("UserUpdatedOperationalSchedules", fields: [updatedById], references: [id], onDelete: SetNull)
+
+  @@unique([deliveryId, source])
+  @@index([scheduledDispatchDate])
+  @@index([source])
+  @@map("operational_schedule")
+}
+
+model ImportBatch {
+  id                String    @id @default(uuid()) @db.Uuid
+  importType        String
+  status            String
+  originalFileName  String
+  selectedSheetName String?
+  selectedHeaderRow Int?
+  mapping           Json?
+  previewVersion    Int       @default(0)
+  uploadedByUserId  String    @db.Uuid
+  committedAt       DateTime? @db.Timestamptz(3)
+  totalRows         Int       @default(0)
+  validRows         Int       @default(0)
+  importedRows      Int       @default(0)
+  skippedRows       Int       @default(0)
+  failedRows        Int       @default(0)
+
+  createdAt   DateTime  @default(now()) @db.Timestamptz(3)
+  updatedAt   DateTime  @updatedAt @db.Timestamptz(3)
+  createdById String?   @db.Uuid
+  updatedById String?   @db.Uuid
+  deletedAt   DateTime? @db.Timestamptz(3)
+
+  uploadedBy User        @relation("ImportBatchUploadedBy", fields: [uploadedByUserId], references: [id], onDelete: Restrict)
+  createdBy  User?       @relation("UserCreatedImportBatches", fields: [createdById], references: [id], onDelete: SetNull)
+  updatedBy  User?       @relation("UserUpdatedImportBatches", fields: [updatedById], references: [id], onDelete: SetNull)
+  rows       ImportRow[]
+
+  @@index([uploadedByUserId])
+  @@index([status])
+  @@index([createdAt])
+  @@map("import_batch")
+}
+
+model ImportRow {
+  id              String  @id @default(uuid()) @db.Uuid
+  batchId         String  @db.Uuid
+  sourceRowNumber Int
+  sheetName       String
+  identifier      String?
+  classification  String
+  message         String?
+  mappedValues    Json?
+  currentValues   Json?
+  proposedValues  Json?
+
+  createdAt   DateTime  @default(now()) @db.Timestamptz(3)
+  updatedAt   DateTime  @updatedAt @db.Timestamptz(3)
+  createdById String?   @db.Uuid
+  updatedById String?   @db.Uuid
+  deletedAt   DateTime? @db.Timestamptz(3)
+
+  batch     ImportBatch @relation(fields: [batchId], references: [id], onDelete: Restrict)
+  createdBy User?       @relation("UserCreatedImportRows", fields: [createdById], references: [id], onDelete: SetNull)
+  updatedBy User?       @relation("UserUpdatedImportRows", fields: [updatedById], references: [id], onDelete: SetNull)
+
+  @@unique([batchId, sheetName, sourceRowNumber])
+  @@index([batchId, sheetName])
+  @@index([batchId, classification])
+  @@map("import_row")
 }
 
 model Pallet {

@@ -214,3 +214,7 @@ It can:
 - Technical implementation belongs in the relevant technical documentation.
 - Every future business rule must be documented here before implementation.
 - This document is the source of truth for operational behaviour.
+
+## 16. Spreadsheet Import Rules
+
+Spreadsheet imports are owned by authorized Administrators and Planners and are preview-first. Identifiers remain strings with leading zeroes preserved. Imports never silently create operational records, reassign shipments, or overwrite populated values from empty cells. SAP Goods Issue Dates and delivery-owned operational schedules are separate facts. Preview is advisory; commit revalidates state, rejects duplicate business keys, and applies only approved allowlisted fields.

@@ -207,3 +207,7 @@ Each future area requires its own approved business rules and physical-model des
 - **Historical information is preserved.** Use audit fields and soft deletion to keep the operational record understandable over time.
 
 This document is the blueprint for future Prisma models. Implementation must follow the approved data design and must not introduce business rules or physical structures that are not documented here.
+
+### Implemented Import and Schedule Data
+
+`Order` stores nullable SAP Ship-To, Route Code, and Gross Weight (Decimal(12,3)) facts. `OperationalSchedule` belongs to Delivery and is unique by Delivery and Source; its date is date-only and does not replace SAP Goods Issue Date. `ImportBatch` owns server-side import workflow metadata and `ImportRow` stores bounded staged and result data. Import history indexes uploader, status, creation date, batch/classification, and staged sheet identity. Raw workbooks are never stored. Batch summaries are retained; abandoned batches may be deleted after seven days and detailed JSON payloads are purgeable after 90 days.

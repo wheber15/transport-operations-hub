@@ -41,6 +41,8 @@ model User {
   updatedOrders        Order[]        @relation("UserUpdatedOrders")
   createdDeliveries    Delivery[]     @relation("UserCreatedDeliveries")
   updatedDeliveries    Delivery[]     @relation("UserUpdatedDeliveries")
+  createdPallets       Pallet[]       @relation("UserCreatedPallets")
+  updatedPallets       Pallet[]       @relation("UserUpdatedPallets")
   createdShipments     Shipment[]     @relation("UserCreatedShipments")
   updatedShipments     Shipment[]     @relation("UserUpdatedShipments")
   createdCarriers      Carrier[]      @relation("UserCreatedCarriers")
@@ -202,12 +204,34 @@ model Delivery {
 
   order     Order     @relation(fields: [orderId], references: [id], onDelete: Restrict)
   shipment  Shipment? @relation(fields: [shipmentId], references: [id], onDelete: SetNull)
+  pallets   Pallet[]
   createdBy User?     @relation("UserCreatedDeliveries", fields: [createdById], references: [id], onDelete: SetNull)
   updatedBy User?     @relation("UserUpdatedDeliveries", fields: [updatedById], references: [id], onDelete: SetNull)
 
   @@index([orderId])
   @@index([shipmentId])
   @@map("delivery")
+}
+
+model Pallet {
+  id             String  @id @default(uuid()) @db.Uuid
+  deliveryId     String  @db.Uuid
+  sequenceNumber Int
+  actualWeight   Decimal @db.Decimal(12, 3)
+
+  createdAt   DateTime  @default(now()) @db.Timestamptz(3)
+  updatedAt   DateTime  @updatedAt @db.Timestamptz(3)
+  createdById String?   @db.Uuid
+  updatedById String?   @db.Uuid
+  deletedAt   DateTime? @db.Timestamptz(3)
+
+  delivery  Delivery @relation(fields: [deliveryId], references: [id], onDelete: Restrict)
+  createdBy User?    @relation("UserCreatedPallets", fields: [createdById], references: [id], onDelete: SetNull)
+  updatedBy User?    @relation("UserUpdatedPallets", fields: [updatedById], references: [id], onDelete: SetNull)
+
+  @@unique([deliveryId, sequenceNumber])
+  @@index([deliveryId, deletedAt])
+  @@map("pallet")
 }
 
 model Shipment {

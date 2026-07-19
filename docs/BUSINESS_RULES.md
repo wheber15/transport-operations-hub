@@ -100,6 +100,12 @@ The dashboard uses `goodsIssueDate` to identify today’s workload. It does not 
 
 A shipment may contain one or more deliveries.
 
+### Pallet Data Foundation
+
+Warehouse-confirmed physical pallets belong to one delivery and record an individual actual weight in kilograms. Actual delivery pallet counts and weights derive from active pallet records; shipment totals derive through assigned deliveries. SAP order gross weight is distinct and must not be distributed, inferred, or reconciled with pallet values automatically.
+
+Pallet data does not turn planning estimates, low-weight guidance, or colour-card and free-material guidance into automatic pallet-generation or classification rules. Manual and legacy shipment totals must not be combined with pallet-derived totals until a reconciliation policy is approved.
+
 A delivery may be assigned only when the delivery and its order are active, the target shipment is active, and the delivery is currently unassigned. A delivery may be unassigned only when the delivery and its order are active and it is assigned to the specified shipment. A delivery is never silently moved between shipments. A stale, already-assigned, already-unassigned, or wrong-shipment request is rejected as a conflict.
 
 Each shipment stores the following operational information:

@@ -63,6 +63,7 @@ These columns provide consistent identity, traceability, and historical preserva
 | SalesRep     | Represents the sales representative associated with customers and related operational issues.                                                |
 | Order        | Represents operational work that progresses through the established order lifecycle.                                                         |
 | Delivery     | Represents delivery activity belonging to an order and grouped into a shipment.                                                              |
+| Pallet       | Represents a warehouse-confirmed pallet associated with a delivery and its actual measured weight.                                           |
 | Shipment     | Represents the transport record that groups deliveries, is associated with a carrier, and records shipment-specific operational information. |
 | Carrier      | Represents the carrier associated with a shipment.                                                                                           |
 | RepIssue     | Represents an outstanding sales representative issue associated with a sales representative and customer.                                    |
@@ -72,6 +73,14 @@ These columns provide consistent identity, traceability, and historical preserva
 | AppSetting   | Represents application configuration managed as a shared application concern.                                                                |
 
 This section establishes entity responsibilities only. Individual columns beyond the shared columns, entity ownership mechanics, and implementation-specific relation definitions will be specified when the corresponding model is designed.
+
+### Pallet Physical Design
+
+A Pallet belongs to exactly one Delivery. It does not store a redundant Order or Shipment reference; shipment ownership is derived through its Delivery. The model records an `id`, `deliveryId`, delivery-scoped `sequenceNumber`, and `actualWeight` alongside the shared audit and soft-delete columns.
+
+`actualWeight` is an individual warehouse-confirmed physical value in kilograms, stored as `Decimal(12,3)`. It is not a SAP order gross weight or a formatted string. Future application validation must reject zero and negative values; Prisma schema syntax does not enforce that rule.
+
+The pair `deliveryId` and `sequenceNumber` is unique. Sequence numbers are positive at the application layer, are not globally unique, and provide deterministic ordering within a delivery. The delivery foreign key uses `Restrict`, preserving the association and preventing destructive deletion of a delivery that still has physical pallet history.
 
 ### Activity Structure
 
@@ -107,6 +116,7 @@ RepIssue
 Additional relationship rules:
 
 - A delivery belongs to an order.
+- A delivery has many pallets; each pallet belongs to exactly one delivery. Pallet records remain independent of estimated-pallet calculations and have no direct shipment relationship.
 - A shipment groups deliveries.
 - A customer is associated with orders and a sales representative.
 - A shipment is associated with a carrier.
@@ -159,7 +169,7 @@ The physical model must support efficient search across these approved identifie
 
 Analytics are calculated from operational data. The data model must preserve the authoritative operational records needed to calculate analytics without creating unnecessary duplicate totals.
 
-Derived values, including shipment totals, customer statistics, and analytics KPIs, should be calculated whenever practical. Any stored derivative or historical snapshot must be justified and documented separately before implementation.
+Derived values, including shipment totals, customer statistics, and analytics KPIs, should be calculated whenever practical. Actual delivery pallet counts and weights derive from active Pallet records after warehouse confirmation. Shipment counts and weights derive from the pallet records of assigned deliveries. Existing shipment-level actual-pallet and actual-weight fields are manual or legacy snapshots; they must not be combined with pallet-derived totals. Their long-term retention, migration, or reconciliation policy requires a separately approved design.
 
 ## 10. AI Readiness
 

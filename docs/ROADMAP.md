@@ -16,10 +16,12 @@ This roadmap records approved project phases without assigning dates. Future sco
    - Controlled assignment and unassignment of eligible deliveries is implemented for approved operational roles.
 6. SAP Delivery paste import
    - Planners can preview and partially assign eligible SAP Delivery Numbers to an existing shipment with current-state revalidation and factual activity records.
+7. Pallet data foundation
+   - The Pallet schema and migration establish delivery-owned, warehouse-confirmed actual pallet weights. Pallet capture UI and APIs are not yet implemented.
 
 ## Current Phase
 
-Actual pallet capture is the next approved foundation scope. The data foundation must preserve SAP order identifiers, Ship-To identifiers, route codes, gross order weight, and the distinction between SAP Goods Issue dates and any future customer operational schedule. Customer-specific schedule imports, automatic low-weight handling, automatic free-material classification, and automatic pallet grouping remain out of scope until separately approved.
+Pallet capture UI and APIs remain future work. SAP gross-weight parsing and customer-specific schedule imports remain future work. The data foundation must preserve SAP order identifiers, Ship-To identifiers, route codes, gross order weight, and the distinction between SAP Goods Issue dates and any future customer operational schedule. Reconciliation of existing manual or legacy shipment totals with pallet-derived totals remains unresolved. Automatic low-weight handling, automatic free-material classification, and automatic pallet grouping remain out of scope until separately approved.
 
 ## Future Planning
 

@@ -115,6 +115,15 @@ Each shipment stores the following operational information:
 - Actual Weight
 - Notes
 
+### SAP Delivery Paste Import
+
+A planner may paste SAP Delivery Numbers into an existing active shipment to bulk-assign eligible deliveries. Numbers may be separated by lines, tabs, spaces, commas, or semicolons. AXon preserves the normalized identifier string, removes empty values, records duplicate input, and accepts no more than 200 unique Delivery Numbers in one request.
+
+The preview is advisory and does not change data. It classifies each unique input as eligible, already assigned to the target shipment, assigned to another shipment, not found, unavailable delivery, or unavailable order. Duplicate input is reported separately so the planner can correct the source paste without obscuring the delivery's primary operational state.
+
+On confirmation, AXon revalidates the target shipment and each delivery against the current database state. It assigns every delivery still eligible and reports skipped values individually. A delivery is never silently moved from another shipment. Concurrent or stale changes are skipped safely; an unexpected failure rolls back the import transaction and its related activity records.
+
+Low-weight guidance is unavailable until SAP gross order weight is persisted. The import must not infer weight, group orders, classify free material, or create pallets.
 ## 6. Estimated Pallets
 
 Estimated pallets are planning values only. Actual pallets are entered later after loading.

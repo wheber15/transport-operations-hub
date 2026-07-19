@@ -14,10 +14,12 @@ This roadmap records approved project phases without assigning dates. Future sco
    - Authentication, Orders, Shipments, and the live operational dashboard are implemented as approved read-only foundations.
 5. Delivery assignment planning
    - Controlled assignment and unassignment of eligible deliveries is implemented for approved operational roles.
+6. SAP Delivery paste import
+   - Planners can preview and partially assign eligible SAP Delivery Numbers to an existing shipment with current-state revalidation and factual activity records.
 
 ## Current Phase
 
-The project is ready for the next approved feature scope. No additional feature scope is defined by this roadmap.
+Actual pallet capture is the next approved foundation scope. The data foundation must preserve SAP order identifiers, Ship-To identifiers, route codes, gross order weight, and the distinction between SAP Goods Issue dates and any future customer operational schedule. Customer-specific schedule imports, automatic low-weight handling, automatic free-material classification, and automatic pallet grouping remain out of scope until separately approved.
 
 ## Future Planning
 

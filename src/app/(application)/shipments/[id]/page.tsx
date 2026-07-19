@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { requireAuthenticatedUser } from "@/features/auth/application/session";
 import { canManageDeliveryAssignments } from "@/features/auth/domain/roles";
 import { DeliveryAssignmentAction } from "@/features/shipments/components/delivery-assignment-action";
+import { DeliveryImportWorkflow } from "@/features/shipments/components/delivery-import-workflow";
 import {
   formatDateOnly,
   formatOperationalNumber,
@@ -201,6 +202,13 @@ export default async function ShipmentDetailPage({ params }: ShipmentDetailPageP
               </div>
             </div>
           </OperationsPanel>
+
+          {canManageAssignments ? (
+            <DeliveryImportWorkflow
+              shipmentId={shipment.id}
+              shipmentNumber={shipment.shipmentNumber}
+            />
+          ) : null}
         </div>
 
         <div className="space-y-6">

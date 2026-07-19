@@ -59,3 +59,47 @@ export type ShipmentActivityEvent = {
 export type ShipmentActivityRecorder = {
   record(event: ShipmentActivityEvent): Promise<void>;
 };
+
+export const deliveryImportClassifications = [
+  "eligible",
+  "alreadyAssignedToTarget",
+  "assignedToAnotherShipment",
+  "notFound",
+  "unavailableDelivery",
+  "unavailableOrder",
+] as const;
+
+export type DeliveryImportClassification = (typeof deliveryImportClassifications)[number];
+
+export type DeliveryImportResult = {
+  deliveryNumber: string;
+  orderNumber: string | null;
+  customerName: string | null;
+  currentShipmentNumber: string | null;
+  classification: DeliveryImportClassification;
+  message: string;
+};
+
+export type DeliveryImportDuplicate = {
+  deliveryNumber: string;
+  occurrences: number;
+};
+
+export type DeliveryImportPreview = {
+  requestedCount: number;
+  uniqueCount: number;
+  duplicateInputCount: number;
+  duplicates: DeliveryImportDuplicate[];
+  results: DeliveryImportResult[];
+};
+
+export type DeliveryImportCommit = DeliveryImportPreview & {
+  assignedCount: number;
+  alreadyAssignedToTargetCount: number;
+  assignedElsewhereCount: number;
+  notFoundCount: number;
+  unavailableDeliveryCount: number;
+  unavailableOrderCount: number;
+  unavailableCount: number;
+  skippedCount: number;
+};

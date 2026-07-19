@@ -29,3 +29,25 @@ export const deliveryAssignmentRouteSchema = z.object({
   shipmentId: z.string().uuid(),
   deliveryId: z.string().uuid(),
 });
+
+export const deliveryImportPreviewSchema = z
+  .object({
+    deliveryNumbers: z.string().min(1).max(20_000),
+  })
+  .strict();
+
+export const deliveryImportCommitSchema = z
+  .object({
+    deliveryNumbers: z
+      .array(
+        z
+          .string()
+          .trim()
+          .min(1)
+          .max(200)
+          .regex(/^[^\s,;]+$/)
+      )
+      .min(1)
+      .max(400),
+  })
+  .strict();

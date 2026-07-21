@@ -18,7 +18,7 @@ export function TopNavigation({ onMobileMenuToggle }: TopNavigationProps) {
   const pageName = currentItem?.label ?? "Workspace";
 
   return (
-    <header className="border-border/80 bg-background/80 flex h-16 shrink-0 items-center gap-3 border-b px-4 backdrop-blur-xl sm:px-6">
+    <header className="border-border/80 bg-background/80 sticky top-0 z-30 flex h-16 shrink-0 items-center gap-3 border-b px-4 backdrop-blur-xl sm:px-6">
       <Button
         aria-label="Open navigation menu"
         className="lg:hidden"

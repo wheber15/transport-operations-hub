@@ -14,16 +14,18 @@ export function AppShell({ children }: AppShellProps) {
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
 
   return (
-    <div className="bg-background flex min-h-screen">
+    <div className="bg-background flex h-dvh overflow-hidden">
       <AppSidebar
         collapsed={sidebarCollapsed}
         mobileOpen={mobileSidebarOpen}
         onCollapsedChange={() => setSidebarCollapsed((current) => !current)}
         onMobileOpenChange={() => setMobileSidebarOpen((current) => !current)}
       />
-      <div className="flex min-w-0 flex-1 flex-col">
+      <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
         <TopNavigation onMobileMenuToggle={() => setMobileSidebarOpen((current) => !current)} />
-        <main className="flex-1 px-4 py-6 sm:px-6 lg:px-8 lg:py-8">{children}</main>
+        <main className="min-h-0 flex-1 overflow-x-hidden overflow-y-auto px-4 py-6 sm:px-6 lg:px-8 lg:py-8">
+          {children}
+        </main>
       </div>
     </div>
   );

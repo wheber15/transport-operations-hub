@@ -9,6 +9,7 @@ describe("pallet weight domain", () => {
       actualPalletWeightKg: "32.620",
       varianceKg: "0.000",
       status: "captured",
+      weightStatus: "exact",
     });
   });
 
@@ -18,6 +19,7 @@ describe("pallet weight domain", () => {
       actualPalletWeightKg: null,
       varianceKg: null,
       status: "awaitingActual",
+      weightStatus: "awaiting",
     });
   });
 
@@ -47,7 +49,10 @@ describe("pallet weight domain", () => {
       actualPalletWeightKg: "1220.000",
       varianceKg: "20.000",
       status: "captured",
+      weightStatus: "over",
     });
-    expect(calculatePalletWeightSummary(["400"], "1200").varianceKg).toBe("-800.000");
+    expect(calculatePalletWeightSummary(["400"], "1200")).toEqual(
+      expect.objectContaining({ varianceKg: "-800.000", status: "captured", weightStatus: "under" })
+    );
   });
 });

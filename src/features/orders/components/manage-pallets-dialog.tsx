@@ -345,7 +345,7 @@ export function ManagePalletsDialog({
                   </dl>
                   <dl
                     aria-live="polite"
-                    className="grid grid-cols-2 gap-3 rounded-lg border p-4 text-sm sm:grid-cols-4"
+                    className="grid grid-cols-2 gap-3 rounded-lg border p-4 text-sm sm:grid-cols-3 lg:grid-cols-5"
                   >
                     <div>
                       <dt className="text-muted-foreground">Actual pallets</dt>
@@ -369,6 +369,20 @@ export function ManagePalletsDialog({
                       <dt className="text-muted-foreground">Capture status</dt>
                       <dd className="font-medium">
                         {draftSummary.status === "captured" ? "Captured" : "Awaiting pallet data"}
+                      </dd>
+                    </div>
+                    <div>
+                      <dt className="text-muted-foreground">Weight status</dt>
+                      <dd className="font-medium">
+                        {draftSummary.weightStatus === "exact"
+                          ? "Exact SAP weight"
+                          : draftSummary.weightStatus === "under"
+                            ? "Under SAP weight"
+                            : draftSummary.weightStatus === "over"
+                              ? "Over SAP weight"
+                              : draftSummary.weightStatus === "awaiting"
+                                ? "Awaiting pallet data"
+                                : "SAP gross weight unavailable"}
                       </dd>
                     </div>
                   </dl>

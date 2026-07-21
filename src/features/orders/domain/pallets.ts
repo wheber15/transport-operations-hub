@@ -8,6 +8,7 @@ export type PalletWeightSummary = {
   palletCount: number;
   varianceKg: string | null;
   status: "awaitingActual" | "captured";
+  weightStatus: "awaiting" | "under" | "exact" | "over" | "unavailable";
 };
 
 function toMilligrams(value: string) {
@@ -43,6 +44,7 @@ export function calculatePalletWeightSummary(
       actualPalletWeightKg: null,
       varianceKg: null,
       status: "awaitingActual",
+      weightStatus: "awaiting",
     };
   }
 
@@ -56,6 +58,7 @@ export function calculatePalletWeightSummary(
       actualPalletWeightKg,
       varianceKg: null,
       status: "captured",
+      weightStatus: "unavailable",
     };
   }
 
@@ -65,5 +68,6 @@ export function calculatePalletWeightSummary(
     actualPalletWeightKg,
     varianceKg: formatMilligrams(variance),
     status: "captured",
+    weightStatus: variance === 0 ? "exact" : variance < 0 ? "under" : "over",
   };
 }

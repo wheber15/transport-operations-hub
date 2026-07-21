@@ -85,7 +85,7 @@ The application should make the current lifecycle stage visible and use it to he
 
 - **Operational clarity first.** Present the most important work, status, and exceptions without requiring planners to assemble the picture from multiple tools.
 - **Action-oriented by design.** Make it clear what needs attention and provide a direct path to the relevant work.
-- **SAP-aligned, not SAP-replacing.** SAP remains the ERP and system of record; this product improves the planner’s day-to-day operating experience.
+- **SAP-aligned, not SAP-replacing.** SAP remains the ERP and system of record; this product improves the planner’s day-to-day operating experience while preserving the meaning of SAP operational data.
 - **Trust through accuracy.** Display information and progress clearly so planners can make decisions with confidence.
 - **Efficient under daily pressure.** Support fast orientation, focused work, and predictable completion around planning cutoffs.
 - **Enterprise quality.** Prioritise reliability, accessibility, consistency, and maintainability over unnecessary complexity.

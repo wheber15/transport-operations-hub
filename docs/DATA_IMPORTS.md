@@ -10,6 +10,12 @@ Upload a `.xlsx` or `.csv` file, select a sheet, select a header row (1–20), c
 
 ## Limits and security
 
+After selecting a header row, AXon displays a read-only, spreadsheet-style source preview. It begins at the row after the selected header, keeps the source row number visible, shows up to 100 server-provided rows per page, and never transfers a complete workbook to the browser. Formula cells are visibly marked unsupported. Blank cells remain visibly blank.
+
+After mapping, the operational preview displays only approved mapped values. Delivery-reference previews show Delivery Number, mapped Customer Name, Order Number, Goods Issue Date, Ship-To, Route, SAP Gross Weight, and Shipment Number, followed by classification and message. Schedule previews show Delivery Number, mapped Customer Name, Order Number, Scheduled Dispatch Date, Schedule Source, and Source Reference. Unmapped columns are not displayed, apart from Delivery Number and the classification and message columns.
+
+Preview paging is server-side and bounded to 20, 50, or 100 rows. The mapped preview supports server-side Delivery Number or Customer Name search and classification filtering. The summary uses planner-readable classifications such as **Ready to update**, **No change**, and **Delivery not found**. SAP weight keeps raw imported text distinct from its decimal-safe parsed display; for example, `7,000 KG` displays as `7.000 kg` with the original text available on hover.
+
 Files are limited to 10 MB, 10,000 rows, 100 columns, and 2,000 characters per cell. Original workbooks are never retained. Formula cells are rejected when mapped; macros and external links are never executed. Identifiers are strings: surrounding whitespace is trimmed while leading zeroes remain intact.
 
 ## Import types

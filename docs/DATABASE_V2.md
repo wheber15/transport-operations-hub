@@ -34,6 +34,14 @@ SAP remains the system of record. AXon stores operational copies of SAP-derived 
 
 Every model uses an internal UUID primary key. Operational records also retain the applicable user-facing SAP or business identifier, including `orderNumber`, `deliveryNumber`, `shipmentNumber`, `pickingNumber`, and `goodsIssueDate`. Internal UUIDs are never displayed to users as operational identifiers.
 
+`Order.orderNumber` is the SAP OriginDoc. sales-order reference. It is not a purchase-order number. `goodsIssueDate` represents the SAP Goods Issue date and remains distinct from any future operational dispatch schedule.
+
+SAP Ship-To values are business identifiers for the customer or delivery location, not internal IDs. SAP route values are free-form route codes and must not be constrained to a predefined enum.
+
+### Approved Future SAP and Scheduling Fields
+
+The following additional Order facts are approved for future physical design before their implementation: SAP Ship-To identifier, SAP route code, and gross order weight in kilograms. A customer-specific operational dispatch schedule requires separately named fields, such as an operational dispatch date and schedule source, so it cannot overwrite the SAP Goods Issue date. No schedule-import workflow or schedule-specific fields are implemented by this document.
+
 ### Enum Strategy
 
 Use Prisma enums only when the application controls an approved, complete set of allowed values. Do not create status or classification values before they are defined by business rules. When an approved value set is not yet defined, use the least speculative field representation and document the decision with the model implementation.
@@ -162,6 +170,9 @@ Global Search is a cross-cutting capability over operational data. Its searchabl
 - Dispatch Dates
 - Picking Numbers
 - Shipment Numbers
+- SAP OriginDoc. / Sales Order Numbers
+- Ship-To identifiers
+- Route codes
 
 The physical model must support efficient search across these approved identifiers, dates, and entities. The search indexing technology and query implementation are separate architectural concerns.
 

@@ -37,6 +37,7 @@ Use [`.env.example`](.env.example) as the template. It defines the following var
 
 - `DATABASE_URL` for application runtime access
 - `DIRECT_URL` for Prisma CLI operations and migrations
+- `APP_TIME_ZONE` for the operational calendar timezone
 
 ## Database Commands
 
@@ -81,8 +82,8 @@ public/               Static public assets
 - [Logical Data Model](docs/DATABASE.md)
 - [Production Database Blueprint](docs/DATABASE_V2.md)
 - [API Architecture](docs/API.md)
-- [Brand Guidelines](docs/BRAND.md)
 - [Roadmap](docs/ROADMAP.md)
+- [Brand Guidelines](docs/BRAND.md)
 
 ## Current Development Phase
 

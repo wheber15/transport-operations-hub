@@ -99,5 +99,8 @@ All Data Management endpoints require an active Administrator or Planner session
 - `POST /api/data-imports/:id/header` accepts `{ "headerRow": number }`.
 - `POST /api/data-imports/:id/mapping` accepts import type, selected sheet/header, and an allowlisted mapping.
 - `POST /api/data-imports/:id/preview` uses staged server data only.
+- `GET /api/data-imports/:id/rows` returns bounded, safe raw-sheet or mapped-preview rows. It accepts `view` (`raw` or `preview`), `page`, `pageSize` (20, 50, or 100), and, for mapped previews, optional `query` and `classification` filters.
 - `POST /api/data-imports/:id/commit` accepts no row payload and revalidates server-side.
 - `GET /api/data-imports/:id/results` returns bounded safe results; `results.csv` exports formula-safe CSV.
+
+The raw-sheet response excludes header and earlier rows, uses selected header labels only, and returns staged cell values without identifiers or internal records. The mapped-preview response exposes only allowlisted planner-facing display values, classifications, messages, and safe current/proposed values for row inspection. Neither response accepts client-authoritative preview values.

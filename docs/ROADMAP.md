@@ -27,4 +27,6 @@ Pallet capture UI and APIs remain future work. SAP gross-weight parsing and cust
 
 Spreadsheet import and data-management foundations are implemented. Direct SAP integration, automatic synchronization, automatic cleanup scheduling, manual data editing, and pallet capture remain future work.
 
+Sprint 12.1 enhances the committed import workspace with read-only spreadsheet-style source inspection, a mapped operational preview, server-side pagination and filters, and planner-readable row classifications. It does not expand import types or mutation behavior.
+
 Future phases will be documented here after their product scope, architecture impact, and delivery priorities are approved.

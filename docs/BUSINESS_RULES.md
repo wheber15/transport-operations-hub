@@ -96,15 +96,39 @@ Tasks:
 
 The dashboard uses `goodsIssueDate` to identify today’s workload. It does not calculate, display, or otherwise implement the warehouse departure rule at this stage.
 
-## 5. Shipment Rules
+Customer-specific operational schedules, including the Woodies and B&Q Excel schedules, are a separate future planning concept. They must not overwrite or be represented as the SAP Goods Issue date. Until approved schedule data and rules are implemented, the dashboard must present the SAP date truthfully and must not imply that it authoritatively covers customer-specific schedule exceptions.
+
+## 5. SAP Field Semantics
+
+SAP-derived values retain their operational meaning when copied into AXon:
+
+- **OriginDoc.** is the sales-order reference. It is preserved as the Order Number (`orderNumber`); it is not a purchase-order number.
+- **Ship-To** is the stable operational customer or delivery-location identifier supplied by SAP, not an internal UUID. It must support lookup of customers and orders. A future physical model may support multiple Ship-To locations for one customer.
+- **Route** is an SAP route code. Common values such as `IE1211`, `IE1411`, and `IECOLL` are examples only; route codes must remain free-form strings so exceptional values are preserved.
+
+## 6. Weight and Pallet Rules
+
+### SAP Weight Parsing
+
+SAP weight values use European number formatting. Import processing must:
+
+1. trim whitespace;
+2. remove a trailing or embedded `KG` unit marker;
+3. remove period thousands separators;
+4. convert the comma decimal separator to a period; and
+5. parse with a decimal-safe parser that rejects invalid, negative, non-finite, and non-numeric values.
+
+Accepted weights are persisted in kilograms with three decimal places. Floating-point storage must not be used for operational weights.
+
+### Gross Weight and Pallets
+
+Gross Weight is the gross weight of the order. It is distinct from individual pallet weights, shipment weight, and any pallet-derived totals. AXon must not automatically distribute, reconcile, or infer one from the other.
+
+Actual pallet information is recorded only from explicit warehouse confirmation. Each physical pallet belongs to one delivery and records an individual actual weight in kilograms. Actual delivery counts and weights derive from its active pallet records; shipment totals derive from the pallet records of its assigned deliveries. These pallet-derived totals must not be mixed with a separate manual or legacy shipment snapshot without an approved reconciliation policy.
+
+## 7. Shipment Rules
 
 A shipment may contain one or more deliveries.
-
-### Pallet Data Foundation
-
-Warehouse-confirmed physical pallets belong to one delivery and record an individual actual weight in kilograms. Actual delivery pallet counts and weights derive from active pallet records; shipment totals derive through assigned deliveries. SAP order gross weight is distinct and must not be distributed, inferred, or reconciled with pallet values automatically.
-
-Pallet data does not turn planning estimates, low-weight guidance, or colour-card and free-material guidance into automatic pallet-generation or classification rules. Manual and legacy shipment totals must not be combined with pallet-derived totals until a reconciliation policy is approved.
 
 A delivery may be assigned only when the delivery and its order are active, the target shipment is active, and the delivery is currently unassigned. A delivery may be unassigned only when the delivery and its order are active and it is assigned to the specified shipment. A delivery is never silently moved between shipments. A stale, already-assigned, already-unassigned, or wrong-shipment request is rejected as a conflict.
 
@@ -130,7 +154,8 @@ The preview is advisory and does not change data. It classifies each unique inpu
 On confirmation, AXon revalidates the target shipment and each delivery against the current database state. It assigns every delivery still eligible and reports skipped values individually. A delivery is never silently moved from another shipment. Concurrent or stale changes are skipped safely; an unexpected failure rolls back the import transaction and its related activity records.
 
 Low-weight guidance is unavailable until SAP gross order weight is persisted. The import must not infer weight, group orders, classify free material, or create pallets.
-## 6. Estimated Pallets
+
+## 8. Estimated Pallets
 
 Estimated pallets are planning values only. Actual pallets are entered later after loading.
 
@@ -148,7 +173,17 @@ Always round up to the next planning pallet.
 | 750 kg | 1                 |
 | 751 kg | 2                 |
 
-## 7. Dashboard Rules
+The 750 kg rule is a generic planning estimate. It does not classify material, create a pallet record, or make an exception for colour-card or free-of-charge material.
+
+## 9. Low-Weight and Free-of-Charge Guidance
+
+An order with an unusually low weight, currently approximately 7 kg or less, requires planner attention. It may be grouped with a larger order for the same Ship-To location, but AXon must not automatically cancel, assign, or group it. The threshold will become configurable only when configuration requirements are approved.
+
+An order of approximately 4 kg or less may be colour-card or free-of-charge material. This is not a weight-based classification rule: the order must not automatically receive a separate pallet, be automatically marked as free material, or be automatically grouped. It counts as an actual pallet only after explicit planner or warehouse confirmation.
+
+Future data fields for handling category, free-material status, pallet inclusion, or grouping must be designed and approved before implementation.
+
+## 10. Dashboard Rules
 
 The Dashboard is an Operations Centre. It answers operational questions only and displays:
 
@@ -162,7 +197,7 @@ The Dashboard is an Operations Centre. It answers operational questions only and
 
 The Dashboard must not include historical analytics. Historical analysis belongs in the Analytics module.
 
-## 8. Search Rules
+## 11. Search Rules
 
 Global Search is available everywhere and must search:
 
@@ -174,10 +209,12 @@ Global Search is available everywhere and must search:
 - Picking Number
 - Goods Issue Date
 - Dispatch Date
+- Ship-To
+- Route
 
 The keyboard shortcut for Global Search is `Ctrl + K`. Search should return results instantly.
 
-## 9. Customer Rules
+## 12. Customer Rules
 
 Each customer page displays:
 
@@ -190,11 +227,11 @@ Each customer page displays:
 - Total Weight
 - Monthly Statistics
 
-## 10. Analytics Rules
+## 13. Analytics Rules
 
 Analytics is historical. The Dashboard is operational. These responsibilities must never be mixed.
 
-## 11. AI Assistant Rules
+## 14. AI Assistant Rules
 
 The AI Assistant is an Operations Assistant for transport planners. It is not a general-purpose chatbot.
 
@@ -208,7 +245,7 @@ It can:
 - Assist with planning.
 - Help solve operational problems.
 
-## 12. General Principles
+## 15. General Principles
 
 - Business behaviour is defined in this document.
 - Technical implementation belongs in the relevant technical documentation.

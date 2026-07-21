@@ -203,6 +203,8 @@ The Dashboard is an Operations Centre. It answers operational questions only and
 
 The Dashboard must not include historical analytics. Historical analysis belongs in the Analytics module.
 
+For the Today workspace, today is the current Goods Issue business date. Remaining Today includes each active Order for that date once when it has awaiting pallet data, no Shipment assignment, an under/over captured pallet-weight comparison, or missing Route, Ship-To, or SAP Gross Weight planning data. Awaiting pallet data has the highest display priority, followed by no Shipment assignment, weight exception, and missing planning data. A completed/dispatched metric is not shown until a persisted operational completion state is approved.
+
 ## 11. Search Rules
 
 Global Search is available everywhere and must search:

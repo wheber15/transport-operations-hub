@@ -22,6 +22,7 @@ export type ShipmentSearchFilters = {
 
 export type ShipmentListItem = {
   id: string;
+  carrierId: string;
   shipmentNumber: string;
   carrierName: string | null;
   dispatchDate: Date | null;
@@ -29,6 +30,9 @@ export type ShipmentListItem = {
   actualPallets: number | null;
   actualWeight: string | null;
   deliveryCount: number;
+  orderCount: number;
+  estimatedPallets: number;
+  status: "OPEN" | "CLOSED";
 };
 
 export type ShipmentDelivery = {
@@ -48,6 +52,12 @@ export type ShipmentDetail = ShipmentListItem & {
   createdByName: string | null;
   updatedAt: Date;
   updatedByName: string | null;
+  status: "OPEN" | "CLOSED";
+  closedAt: Date | null;
+  closedByName: string | null;
+  orderCount: number;
+  estimatedPallets: number;
+  sapGrossWeight: string | null;
 };
 
 export type ShipmentActivityEvent = {

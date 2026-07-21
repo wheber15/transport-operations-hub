@@ -6,8 +6,12 @@ import {
   list as listShipmentsFromRepository,
   listAvailableDeliveries as listAvailableDeliveriesFromRepository,
   listDeliveries as listDeliveriesFromRepository,
+  listActiveCarriers as listActiveCarriersFromRepository,
   search as searchShipmentsFromRepository,
   unassignDeliveryAtomically,
+  createShipment as createShipmentFromRepository,
+  closeShipment as closeShipmentFromRepository,
+  updateOpenShipment as updateOpenShipmentFromRepository,
 } from "@/features/shipments/repositories/shipment-repository";
 import type {
   ShipmentActivityRecorder,
@@ -18,6 +22,9 @@ import {
   deliveryAssignmentSchema,
   shipmentIdSchema,
   shipmentSearchFiltersSchema,
+  shipmentCreateSchema,
+  shipmentCloseSchema,
+  shipmentUpdateSchema,
 } from "@/features/shipments/validation/shipment-schemas";
 import { canManageDeliveryAssignments } from "@/features/auth/domain/roles";
 
@@ -30,6 +37,9 @@ export class ShipmentNotFoundError extends Error {
 export class DeliveryNotFoundError extends Error {}
 export class DeliveryAssignmentConflictError extends Error {}
 export class DeliveryAssignmentForbiddenError extends Error {}
+export class ShipmentClosedError extends Error {}
+export class ShipmentDuplicateError extends Error {}
+export class ShipmentEmptyError extends Error {}
 
 type DeliveryAssignmentActor = { id: string; role: string | null };
 
@@ -50,6 +60,40 @@ export async function assignDeliveryToShipment(
   if (result === "delivery-not-found") throw new DeliveryNotFoundError();
   if (result === "conflict") throw new DeliveryAssignmentConflictError();
   return { deliveryId: payload.deliveryId, shipmentId };
+}
+
+export async function createShipment(actor: DeliveryAssignmentActor, input: unknown) {
+  requireDeliveryAssignmentRole(actor);
+  const shipment = await createShipmentFromRepository(actor.id, shipmentCreateSchema.parse(input));
+  if (shipment === "duplicate") throw new ShipmentDuplicateError();
+  return shipment;
+}
+
+export async function closeShipment(actor: DeliveryAssignmentActor, id: unknown, input: unknown) {
+  requireDeliveryAssignmentRole(actor);
+  const { confirmEmpty } = shipmentCloseSchema.parse(input);
+  const result = await closeShipmentFromRepository(
+    actor.id,
+    shipmentIdSchema.parse(id),
+    confirmEmpty === true
+  );
+  if (result === "empty") throw new ShipmentEmptyError();
+  if (result === "not-open") throw new ShipmentClosedError();
+}
+
+export async function updateOpenShipment(
+  actor: DeliveryAssignmentActor,
+  id: unknown,
+  input: unknown
+) {
+  requireDeliveryAssignmentRole(actor);
+  const result = await updateOpenShipmentFromRepository(
+    actor.id,
+    shipmentIdSchema.parse(id),
+    shipmentUpdateSchema.parse(input)
+  );
+  if (result === "duplicate") throw new ShipmentDuplicateError();
+  if (result === "not-open") throw new ShipmentClosedError();
 }
 
 export async function unassignDeliveryFromShipment(actor: DeliveryAssignmentActor, input: unknown) {
@@ -105,4 +149,16 @@ export function getShipmentActivityRecorder(dependencies: ShipmentServiceDepende
 
 export function getValidatedShipmentFilters(input: unknown): ShipmentSearchFilters {
   return shipmentSearchFiltersSchema.parse(input);
+}
+
+export async function listActiveCarriers() {
+  try {
+    return await listActiveCarriersFromRepository();
+  } catch (error) {
+    console.error("shipment_carrier_load_failed", {
+      operation: "listActiveCarriers",
+      error: error instanceof Error ? error.message : "unknown",
+    });
+    return [];
+  }
 }

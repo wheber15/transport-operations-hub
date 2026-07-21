@@ -6,9 +6,11 @@ import { EmptyState } from "@/components/shared/operations/empty-state";
 import { OperationsPanel } from "@/components/shared/operations/operations-panel";
 import { Button } from "@/components/ui/button";
 import { ShipmentsTable } from "@/features/shipments/components/shipments-table";
+import { CreateShipmentDialog } from "@/features/shipments/components/create-shipment-dialog";
 import {
   getValidatedShipmentFilters,
   listShipments,
+  listActiveCarriers,
 } from "@/features/shipments/services/shipment-service";
 
 export const metadata: Metadata = {
@@ -47,19 +49,25 @@ export default async function ShipmentsPage({ searchParams }: ShipmentsPageProps
     sortBy: getFirstValue(rawSearchParams.sortBy),
     sortDirection: getFirstValue(rawSearchParams.sortDirection),
   });
-  const { items, total } = await listShipments(filters);
+  const [{ items, total }, carriers] = await Promise.all([
+    listShipments(filters),
+    listActiveCarriers(),
+  ]);
   const totalPages = Math.max(1, Math.ceil(total / filters.pageSize));
 
   return (
     <div className="mx-auto flex w-full max-w-7xl flex-col gap-6 lg:gap-8">
-      <header>
-        <p className="text-primary text-sm font-medium">Operations</p>
-        <h1 className="text-foreground mt-2 text-2xl font-semibold tracking-tight sm:text-3xl">
-          Shipments
-        </h1>
-        <p className="text-muted-foreground mt-2 text-sm leading-6">
-          Review shipments and the deliveries grouped for transport.
-        </p>
+      <header className="flex flex-wrap items-end justify-between gap-4">
+        <div>
+          <p className="text-primary text-sm font-medium">Operations</p>
+          <h1 className="text-foreground mt-2 text-2xl font-semibold tracking-tight sm:text-3xl">
+            Shipments
+          </h1>
+          <p className="text-muted-foreground mt-2 text-sm leading-6">
+            Review shipments and the deliveries grouped for transport.
+          </p>
+        </div>
+        <CreateShipmentDialog carriers={carriers} />
       </header>
 
       <OperationsPanel aria-label="Shipments workspace">

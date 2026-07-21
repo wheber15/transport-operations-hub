@@ -87,7 +87,7 @@ function SortableHeader({
 export function ShipmentsTable({ items, filters }: ShipmentsTableProps) {
   return (
     <div className="overflow-x-auto">
-      <table className="w-full min-w-[1120px] border-collapse">
+      <table className="w-full min-w-[1280px] border-collapse">
         <thead className="border-border/80 bg-muted/30 border-y">
           <tr>
             <SortableHeader field="shipmentNumber" filters={filters}>
@@ -111,6 +111,18 @@ export function ShipmentsTable({ items, filters }: ShipmentsTableProps) {
             <SortableHeader field="deliveryCount" filters={filters}>
               Deliveries
             </SortableHeader>
+            <th
+              className="text-muted-foreground px-4 py-3 text-left text-xs font-medium tracking-wide uppercase"
+              scope="col"
+            >
+              Orders
+            </th>
+            <th
+              className="text-muted-foreground px-4 py-3 text-left text-xs font-medium tracking-wide uppercase"
+              scope="col"
+            >
+              Estimated Pallets
+            </th>
             <th
               className="text-muted-foreground px-4 py-3 text-left text-xs font-medium tracking-wide uppercase"
               scope="col"
@@ -148,7 +160,21 @@ export function ShipmentsTable({ items, filters }: ShipmentsTableProps) {
               <td className="text-muted-foreground px-4 py-3.5 text-sm">
                 {shipment.deliveryCount}
               </td>
-              <td className="text-muted-foreground px-4 py-3.5 text-sm">Not available</td>
+              <td className="text-muted-foreground px-4 py-3.5 text-sm">{shipment.orderCount}</td>
+              <td className="text-muted-foreground px-4 py-3.5 text-sm">
+                {formatOperationalNumber(shipment.estimatedPallets)}
+              </td>
+              <td className="px-4 py-3.5 text-sm">
+                <span
+                  className={
+                    shipment.status === "OPEN"
+                      ? "bg-primary/10 text-primary rounded-full px-2 py-1 text-xs font-medium"
+                      : "bg-muted text-muted-foreground rounded-full px-2 py-1 text-xs font-medium"
+                  }
+                >
+                  {shipment.status}
+                </span>
+              </td>
             </tr>
           ))}
         </tbody>

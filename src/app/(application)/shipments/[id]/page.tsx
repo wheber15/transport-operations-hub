@@ -9,6 +9,8 @@ import { requireAuthenticatedUser } from "@/features/auth/application/session";
 import { canManageDeliveryAssignments } from "@/features/auth/domain/roles";
 import { DeliveryAssignmentAction } from "@/features/shipments/components/delivery-assignment-action";
 import { DeliveryImportWorkflow } from "@/features/shipments/components/delivery-import-workflow";
+import { CloseShipmentButton } from "@/features/shipments/components/close-shipment-button";
+import { EditShipmentDialog } from "@/features/shipments/components/edit-shipment-dialog";
 import {
   formatDateOnly,
   formatOperationalNumber,
@@ -18,6 +20,7 @@ import {
 import {
   ShipmentNotFoundError,
   getShipmentById,
+  listActiveCarriers,
 } from "@/features/shipments/services/shipment-service";
 
 type ShipmentDetailPageProps = {
@@ -73,9 +76,10 @@ export default async function ShipmentDetailPage({ params }: ShipmentDetailPageP
   const user = await requireAuthenticatedUser();
   const canManageAssignments = canManageDeliveryAssignments(user.role);
   let shipment;
+  let carriers;
 
   try {
-    shipment = await getShipmentById(id);
+    [shipment, carriers] = await Promise.all([getShipmentById(id), listActiveCarriers()]);
   } catch (error) {
     if (error instanceof ShipmentNotFoundError) {
       notFound();
@@ -106,6 +110,21 @@ export default async function ShipmentDetailPage({ params }: ShipmentDetailPageP
             {shipment.carrierName ?? "Carrier unavailable"}
           </p>
         </div>
+        {shipment.status === "OPEN" && canManageAssignments ? (
+          <div className="flex flex-wrap gap-2">
+            <EditShipmentDialog
+              carriers={carriers}
+              shipment={{
+                id: shipment.id,
+                shipmentNumber: shipment.shipmentNumber,
+                dispatchDate: shipment.dispatchDate?.toISOString().slice(0, 10) ?? "",
+                carrierId: shipment.carrierId,
+                notes: shipment.notes ?? "",
+              }}
+            />
+            <CloseShipmentButton deliveryCount={shipment.deliveryCount} shipmentId={shipment.id} />
+          </div>
+        ) : null}
       </header>
 
       <div className="grid gap-6 xl:grid-cols-[minmax(0,1.5fr)_minmax(18rem,0.75fr)]">
@@ -135,19 +154,35 @@ export default async function ShipmentDetailPage({ params }: ShipmentDetailPageP
                 </dd>
               </div>
               <div className="grid gap-1 px-5 py-4 sm:grid-cols-2 sm:gap-4">
-                <dt className="text-muted-foreground text-sm">Delivery Count</dt>
+                <dt className="text-muted-foreground text-sm">Deliveries</dt>
                 <dd className="text-foreground text-sm font-medium">{shipment.deliveryCount}</dd>
               </div>
               <div className="grid gap-1 px-5 py-4 sm:grid-cols-2 sm:gap-4">
-                <dt className="text-muted-foreground text-sm">Total Pallets</dt>
+                <dt className="text-muted-foreground text-sm">Orders</dt>
+                <dd className="text-foreground text-sm font-medium">{shipment.orderCount}</dd>
+              </div>
+              <div className="grid gap-1 px-5 py-4 sm:grid-cols-2 sm:gap-4">
+                <dt className="text-muted-foreground text-sm">Estimated Pallets</dt>
+                <dd className="text-foreground text-sm font-medium">
+                  {formatOperationalNumber(shipment.estimatedPallets)}
+                </dd>
+              </div>
+              <div className="grid gap-1 px-5 py-4 sm:grid-cols-2 sm:gap-4">
+                <dt className="text-muted-foreground text-sm">Actual Pallets</dt>
                 <dd className="text-foreground text-sm font-medium">
                   {formatOperationalNumber(shipment.actualPallets)}
                 </dd>
               </div>
               <div className="grid gap-1 px-5 py-4 sm:grid-cols-2 sm:gap-4">
-                <dt className="text-muted-foreground text-sm">Total Weight</dt>
+                <dt className="text-muted-foreground text-sm">Actual Pallet Weight</dt>
                 <dd className="text-foreground text-sm font-medium">
                   {formatOperationalWeight(shipment.actualWeight)}
+                </dd>
+              </div>
+              <div className="grid gap-1 px-5 py-4 sm:grid-cols-2 sm:gap-4">
+                <dt className="text-muted-foreground text-sm">SAP Gross Weight</dt>
+                <dd className="text-foreground text-sm font-medium">
+                  {formatOperationalWeight(shipment.sapGrossWeight)}
                 </dd>
               </div>
               <div className="grid gap-1 px-5 py-4 sm:grid-cols-2 sm:gap-4">

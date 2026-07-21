@@ -18,6 +18,24 @@ export const shipmentSearchFiltersSchema = z.object({
 });
 
 export const shipmentIdSchema = z.string().uuid();
+const optionalText = z.preprocess(
+  (value) => (typeof value === "string" && value.trim() === "" ? null : value),
+  z.string().trim().min(1).max(500).nullable().optional()
+);
+export const shipmentCreateSchema = z
+  .object({
+    shipmentNumber: z.string().trim().min(1).max(100),
+    carrierId: z.string().uuid(),
+    dispatchDate: z.string().date(),
+    deliveryDate: z.string().date().nullable().optional(),
+    notes: optionalText,
+  })
+  .strict();
+export const shipmentUpdateSchema = shipmentCreateSchema
+  .partial()
+  .refine((data) => Object.values(data).some((value) => value !== undefined));
+
+export const shipmentCloseSchema = z.object({ confirmEmpty: z.literal(true).optional() }).strict();
 
 export const deliveryAssignmentSchema = z
   .object({

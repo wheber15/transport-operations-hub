@@ -9,13 +9,18 @@ import type {
   ShipmentListItem,
   ShipmentSearchFilters,
 } from "@/features/shipments/types/shipment";
-import { calculatePalletWeightSummary } from "@/features/orders/domain/pallets";
+import {
+  calculatePalletWeightSummary,
+  estimatePalletCount,
+} from "@/features/orders/domain/pallets";
 
 const shipmentListSelect = {
   id: true,
+  carrierId: true,
   shipmentNumber: true,
   dispatchDate: true,
   deliveryDate: true,
+  status: true,
   carrier: {
     select: {
       name: true,
@@ -38,7 +43,10 @@ const shipmentListSelect = {
   },
   deliveries: {
     where: { deletedAt: null, order: { is: { deletedAt: null } } },
-    select: { pallets: { where: { deletedAt: null }, select: { actualWeight: true } } },
+    select: {
+      order: { select: { id: true, grossWeightKg: true } },
+      pallets: { where: { deletedAt: null }, select: { actualWeight: true } },
+    },
   },
 } satisfies Prisma.ShipmentSelect;
 
@@ -59,6 +67,8 @@ const shipmentDetailSelect = {
       deletedAt: true,
     },
   },
+  closedAt: true,
+  closedBy: { select: { displayName: true, deletedAt: true } },
 } satisfies Prisma.ShipmentSelect;
 
 const deliverySelect = {
@@ -77,11 +87,14 @@ type DeliveryRecord = Prisma.DeliveryGetPayload<{ select: typeof deliverySelect 
 
 function toShipmentListItem(shipment: ShipmentListRecord): ShipmentListItem {
   const palletSummary = calculatePalletWeightSummary(
-    shipment.deliveries.flatMap((delivery) => delivery.pallets.map((pallet) => pallet.actualWeight.toFixed(3))),
+    shipment.deliveries.flatMap((delivery) =>
+      delivery.pallets.map((pallet) => pallet.actualWeight.toFixed(3))
+    ),
     null
   );
   return {
     id: shipment.id,
+    carrierId: shipment.carrierId,
     shipmentNumber: shipment.shipmentNumber,
     carrierName: shipment.carrier.deletedAt === null ? shipment.carrier.name : null,
     dispatchDate: shipment.dispatchDate,
@@ -89,10 +102,24 @@ function toShipmentListItem(shipment: ShipmentListRecord): ShipmentListItem {
     actualPallets: palletSummary.palletCount === 0 ? null : palletSummary.palletCount,
     actualWeight: palletSummary.actualPalletWeightKg,
     deliveryCount: shipment._count.deliveries,
+    status: shipment.status,
+    orderCount: new Set(shipment.deliveries.map((delivery) => delivery.order.id)).size,
+    estimatedPallets: shipment.deliveries.reduce(
+      (total, delivery) =>
+        total + (estimatePalletCount(delivery.order.grossWeightKg?.toFixed(3) ?? null) ?? 0),
+      0
+    ),
   };
 }
 
 function toShipmentDetail(shipment: ShipmentDetailRecord): ShipmentDetail {
+  const orderWeights = shipment.deliveries
+    .map((delivery) => delivery.order.grossWeightKg?.toFixed(3) ?? null)
+    .filter((weight): weight is string => weight !== null);
+  const orderNumbers = new Set(shipment.deliveries.map((delivery) => delivery.order.id));
+  const sapGrossWeight = orderWeights
+    .reduce((total, weight) => total + Number(weight), 0)
+    .toFixed(3);
   return {
     ...toShipmentListItem(shipment),
     notes: shipment.notes,
@@ -100,6 +127,20 @@ function toShipmentDetail(shipment: ShipmentDetailRecord): ShipmentDetail {
     createdByName: shipment.createdBy?.deletedAt === null ? shipment.createdBy.displayName : null,
     updatedAt: shipment.updatedAt,
     updatedByName: shipment.updatedBy?.deletedAt === null ? shipment.updatedBy.displayName : null,
+    closedAt: shipment.closedAt,
+    closedByName: shipment.closedBy?.deletedAt === null ? shipment.closedBy.displayName : null,
+    orderCount: orderNumbers.size,
+    estimatedPallets: [...new Set(shipment.deliveries.map((delivery) => delivery.order.id))].reduce(
+      (total, orderId) =>
+        total +
+        (estimatePalletCount(
+          shipment.deliveries
+            .find((delivery) => delivery.order.id === orderId)
+            ?.order.grossWeightKg?.toFixed(3) ?? null
+        ) ?? 0),
+      0
+    ),
+    sapGrossWeight: orderWeights.length > 0 ? sapGrossWeight : null,
   };
 }
 
@@ -151,7 +192,7 @@ export async function list(filters: ShipmentSearchFilters) {
     prisma.shipment.findMany({
       where,
       select: shipmentListSelect,
-      orderBy: getOrderBy(filters.sortBy, filters.sortDirection),
+      orderBy: [{ status: "asc" }, ...getOrderBy(filters.sortBy, filters.sortDirection)],
       skip,
       take: filters.pageSize,
     }),
@@ -180,6 +221,14 @@ export async function search(query: string, page = 1, pageSize = 25) {
     pageSize,
     sortBy: "shipmentNumber",
     sortDirection: "asc",
+  });
+}
+
+export async function listActiveCarriers() {
+  return prisma.carrier.findMany({
+    where: { deletedAt: null },
+    select: { id: true, name: true },
+    orderBy: [{ name: "asc" }, { id: "asc" }],
   });
 }
 
@@ -231,7 +280,7 @@ export async function assignDeliveryAtomically(input: {
 }) {
   return prisma.$transaction(async (transaction) => {
     const shipment = await transaction.shipment.findFirst({
-      where: { id: input.shipmentId, deletedAt: null },
+      where: { id: input.shipmentId, deletedAt: null, status: "OPEN" },
       select: { shipmentNumber: true },
     });
     if (!shipment) return "shipment-not-found" as const;
@@ -275,7 +324,7 @@ export async function unassignDeliveryAtomically(input: {
 }) {
   return prisma.$transaction(async (transaction) => {
     const shipment = await transaction.shipment.findFirst({
-      where: { id: input.shipmentId, deletedAt: null },
+      where: { id: input.shipmentId, deletedAt: null, status: "OPEN" },
       select: { shipmentNumber: true },
     });
     if (!shipment) return "shipment-not-found" as const;
@@ -309,5 +358,111 @@ export async function unassignDeliveryAtomically(input: {
       },
     });
     return "unassigned" as const;
+  });
+}
+
+export async function createShipment(
+  actorId: string,
+  input: {
+    shipmentNumber: string;
+    carrierId: string;
+    dispatchDate?: string | null;
+    deliveryDate?: string | null;
+    notes?: string | null;
+  }
+) {
+  try {
+    return await prisma.shipment.create({
+      data: {
+        shipmentNumber: input.shipmentNumber,
+        carrierId: input.carrierId,
+        dispatchDate: input.dispatchDate ? new Date(`${input.dispatchDate}T00:00:00.000Z`) : null,
+        deliveryDate: input.deliveryDate ? new Date(`${input.deliveryDate}T00:00:00.000Z`) : null,
+        notes: input.notes ?? null,
+        createdById: actorId,
+        updatedById: actorId,
+      },
+    });
+  } catch (error) {
+    if (typeof error === "object" && error !== null && "code" in error && error.code === "P2002")
+      return "duplicate" as const;
+    throw error;
+  }
+}
+
+export async function updateOpenShipment(
+  actorId: string,
+  shipmentId: string,
+  input: {
+    shipmentNumber?: string;
+    carrierId?: string;
+    dispatchDate?: string | null;
+    deliveryDate?: string | null;
+    notes?: string | null;
+  }
+) {
+  try {
+    const result = await prisma.shipment.updateMany({
+      where: { id: shipmentId, deletedAt: null, status: "OPEN" },
+      data: {
+        ...(input.shipmentNumber === undefined ? {} : { shipmentNumber: input.shipmentNumber }),
+        ...(input.carrierId === undefined ? {} : { carrierId: input.carrierId }),
+        ...(input.dispatchDate === undefined
+          ? {}
+          : {
+              dispatchDate: input.dispatchDate
+                ? new Date(`${input.dispatchDate}T00:00:00.000Z`)
+                : null,
+            }),
+        ...(input.deliveryDate === undefined
+          ? {}
+          : {
+              deliveryDate: input.deliveryDate
+                ? new Date(`${input.deliveryDate}T00:00:00.000Z`)
+                : null,
+            }),
+        ...(input.notes === undefined ? {} : { notes: input.notes }),
+        updatedById: actorId,
+      },
+    });
+    return result.count === 1 ? "updated" : ("not-open" as const);
+  } catch (error) {
+    if (typeof error === "object" && error !== null && "code" in error && error.code === "P2002")
+      return "duplicate" as const;
+    throw error;
+  }
+}
+
+export async function closeShipment(actorId: string, shipmentId: string, confirmEmpty: boolean) {
+  return prisma.$transaction(async (tx) => {
+    const shipment = await tx.shipment.findFirst({
+      where: { id: shipmentId, deletedAt: null, status: "OPEN" },
+      select: {
+        shipmentNumber: true,
+        _count: {
+          select: {
+            deliveries: { where: { deletedAt: null, order: { is: { deletedAt: null } } } },
+          },
+        },
+      },
+    });
+    if (!shipment) return "not-open" as const;
+    if (shipment._count.deliveries === 0 && !confirmEmpty) return "empty" as const;
+    await tx.shipment.update({
+      where: { id: shipmentId },
+      data: { status: "CLOSED", closedAt: new Date(), closedById: actorId, updatedById: actorId },
+    });
+    await tx.activity.create({
+      data: {
+        entityType: "Shipment",
+        entityId: shipmentId,
+        action: "shipment_closed",
+        description: `Shipment ${shipment.shipmentNumber} closed.`,
+        actorId,
+        createdById: actorId,
+        updatedById: actorId,
+      },
+    });
+    return "closed" as const;
   });
 }

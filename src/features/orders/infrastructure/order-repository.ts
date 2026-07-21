@@ -8,7 +8,11 @@ import type {
   OrderSearchFilters,
   OrdersSummary,
 } from "@/features/orders/domain/order";
-import { calculatePalletWeightSummary, estimatePalletCount } from "@/features/orders/domain/pallets";
+import {
+  calculatePalletWeightSummary,
+  estimatePalletCount,
+} from "@/features/orders/domain/pallets";
+import type { OrderAdminUpdateInput } from "@/features/orders/validation/order-schemas";
 
 const orderListSelect = {
   id: true,
@@ -17,7 +21,10 @@ const orderListSelect = {
   goodsIssueDate: true,
   shipToNumber: true,
   routeCode: true,
+  shippingPoint: true,
   grossWeightKg: true,
+  deletedAt: true,
+  updatedBy: { select: { displayName: true, deletedAt: true } },
   customer: {
     select: {
       name: true,
@@ -93,6 +100,7 @@ function toOrderListItem(order: OrderListRecord): OrderListItem {
     salesRepName: salesRepIsAvailable ? (order.customer.salesRep?.name ?? null) : null,
     shipToNumber: order.shipToNumber,
     routeCode: order.routeCode,
+    shippingPoint: order.shippingPoint,
     grossWeightKg: sapGrossWeightKg,
     estimatedPalletCount: estimatePalletCount(sapGrossWeightKg),
     deliveryId: delivery?.id ?? null,
@@ -102,6 +110,10 @@ function toOrderListItem(order: OrderListRecord): OrderListItem {
     actualPalletWeightKg: palletSummary.actualPalletWeightKg,
     weightVarianceKg: palletSummary.varianceKg,
     palletStatus: palletSummary.status,
+    palletWeightStatus: palletSummary.weightStatus,
+    deletedAt: order.deletedAt,
+    deletedByName:
+      order.deletedAt && order.updatedBy?.deletedAt === null ? order.updatedBy.displayName : null,
   };
 }
 
@@ -124,6 +136,7 @@ function toOrderDetail(order: OrderDetailRecord): OrderDetail {
         actualPalletWeightKg: summary.actualPalletWeightKg,
         weightVarianceKg: summary.varianceKg,
         palletStatus: summary.status,
+        palletWeightStatus: summary.weightStatus,
         shipmentNumber: delivery.shipment?.shipmentNumber ?? null,
       };
     }),
@@ -181,13 +194,27 @@ export function buildOrdersWhere(filters: OrderSearchFilters): Prisma.OrderWhere
   const base: Prisma.OrderWhereInput = {
     ...where,
     AND: [
-      ...(filters.shipmentState === "assigned" ? [{ deliveries: { some: { deletedAt: null, shipmentId: { not: null } } } }] : []),
-      ...(filters.shipmentState === "unassigned" ? [{ deliveries: { some: { deletedAt: null, shipmentId: null } } }] : []),
-      ...(filters.palletState === "awaiting" ? [{ deliveries: { some: { deletedAt: null, pallets: { none: { deletedAt: null } } } } }] : []),
-      ...(filters.palletState === "captured" ? [{ deliveries: { some: { deletedAt: null, pallets: { some: { deletedAt: null } } } } }] : []),
+      ...(filters.shipmentState === "assigned"
+        ? [{ deliveries: { some: { deletedAt: null, shipmentId: { not: null } } } }]
+        : []),
+      ...(filters.shipmentState === "unassigned"
+        ? [{ deliveries: { some: { deletedAt: null, shipmentId: null } } }]
+        : []),
+      ...(filters.palletState === "awaiting"
+        ? [{ deliveries: { some: { deletedAt: null, pallets: { none: { deletedAt: null } } } } }]
+        : []),
+      ...(filters.palletState === "captured"
+        ? [{ deliveries: { some: { deletedAt: null, pallets: { some: { deletedAt: null } } } } }]
+        : []),
     ],
-    ...(filters.recordState === "active" ? { deletedAt: null } : filters.recordState === "deleted" ? { deletedAt: { not: null } } : {}),
-    ...(filters.customer ? { customer: { name: { contains: filters.customer, mode: "insensitive" } } } : {}),
+    ...(filters.recordState === "active"
+      ? { deletedAt: null }
+      : filters.recordState === "deleted"
+        ? { deletedAt: { not: null } }
+        : {}),
+    ...(filters.customer
+      ? { customer: { name: { contains: filters.customer, mode: "insensitive" } } }
+      : {}),
     ...(filters.route ? { routeCode: { equals: filters.route, mode: "insensitive" } } : {}),
     ...(filters.shipTo ? { shipToNumber: { equals: filters.shipTo, mode: "insensitive" } } : {}),
   };
@@ -195,7 +222,9 @@ export function buildOrdersWhere(filters: OrderSearchFilters): Prisma.OrderWhere
   return {
     ...base,
     goodsIssueDate: {
-      ...(filters.goodsIssueFrom ? { gte: new Date(`${filters.goodsIssueFrom}T00:00:00.000Z`) } : {}),
+      ...(filters.goodsIssueFrom
+        ? { gte: new Date(`${filters.goodsIssueFrom}T00:00:00.000Z`) }
+        : {}),
       ...(filters.goodsIssueTo ? { lte: new Date(`${filters.goodsIssueTo}T00:00:00.000Z`) } : {}),
     },
   };
@@ -225,8 +254,19 @@ export async function getOrdersSummary(filters: OrderSearchFilters): Promise<Ord
   const [orders, deliveries, assignedToShipment, awaitingActualPalletData] = await Promise.all([
     prisma.order.count({ where }),
     prisma.delivery.count({ where: { deletedAt: null, order: orderRelation } }),
-    prisma.order.count({ where: { AND: [where, { deliveries: { some: { deletedAt: null, shipmentId: { not: null } } } }] } }),
-    prisma.order.count({ where: { AND: [where, { deliveries: { some: { deletedAt: null, pallets: { none: { deletedAt: null } } } } }] } }),
+    prisma.order.count({
+      where: {
+        AND: [where, { deliveries: { some: { deletedAt: null, shipmentId: { not: null } } } }],
+      },
+    }),
+    prisma.order.count({
+      where: {
+        AND: [
+          where,
+          { deliveries: { some: { deletedAt: null, pallets: { none: { deletedAt: null } } } } },
+        ],
+      },
+    }),
   ]);
   return { orders, deliveries, assignedToShipment, awaitingActualPalletData };
 }
@@ -253,6 +293,78 @@ export async function getOrderByOrderNumber(orderNumber: string): Promise<OrderD
   });
 
   return order ? toOrderDetail(order) : null;
+}
+
+function toBusinessDate(value: string | null | undefined) {
+  return value === undefined
+    ? undefined
+    : value === null
+      ? null
+      : new Date(`${value}T00:00:00.000Z`);
+}
+
+function toManualOrderData(input: OrderAdminUpdateInput, actorId: string) {
+  return {
+    ...(input.pickingNumber !== undefined ? { pickingNumber: input.pickingNumber } : {}),
+    ...(input.goodsIssueDate !== undefined
+      ? { goodsIssueDate: toBusinessDate(input.goodsIssueDate) }
+      : {}),
+    ...(input.shipToNumber !== undefined ? { shipToNumber: input.shipToNumber } : {}),
+    ...(input.routeCode !== undefined ? { routeCode: input.routeCode } : {}),
+    ...(input.shippingPoint !== undefined ? { shippingPoint: input.shippingPoint } : {}),
+    ...(input.grossWeightKg !== undefined ? { grossWeightKg: input.grossWeightKg } : {}),
+    updatedById: actorId,
+  };
+}
+
+export async function updateActiveOrder(actorId: string, id: string, input: OrderAdminUpdateInput) {
+  const updated = await prisma.order.updateMany({
+    where: { id, deletedAt: null },
+    data: toManualOrderData(input, actorId),
+  });
+  if (updated.count === 0) return null;
+  await prisma.activity.create({
+    data: {
+      entityType: "Order",
+      entityId: id,
+      action: "order_updated",
+      description: "Order operational details updated.",
+      actorId,
+      createdById: actorId,
+      updatedById: actorId,
+    },
+  });
+  return getOrderById(id);
+}
+
+async function changeOrderRecordState(actorId: string, id: string, deletedAt: Date | null) {
+  return prisma.$transaction(async (tx) => {
+    const updated = await tx.order.updateMany({
+      where: deletedAt ? { id, deletedAt: null } : { id, deletedAt: { not: null } },
+      data: { deletedAt, updatedById: actorId },
+    });
+    if (updated.count === 0) return null;
+    await tx.activity.create({
+      data: {
+        entityType: "Order",
+        entityId: id,
+        action: deletedAt ? "order_soft_deleted" : "order_restored",
+        description: deletedAt ? "Order soft-deleted." : "Order restored.",
+        actorId,
+        createdById: actorId,
+        updatedById: actorId,
+      },
+    });
+    return true;
+  });
+}
+
+export function softDeleteOrder(actorId: string, id: string) {
+  return changeOrderRecordState(actorId, id, new Date());
+}
+
+export function restoreOrder(actorId: string, id: string) {
+  return changeOrderRecordState(actorId, id, null);
 }
 
 export async function searchOrders(query: string, page = 1, pageSize = 25) {

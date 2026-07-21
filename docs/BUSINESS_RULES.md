@@ -126,6 +126,12 @@ Gross Weight is the gross weight of the order. It is distinct from individual pa
 
 Actual pallet information is recorded only from explicit warehouse confirmation. Each physical pallet belongs to one delivery and records an individual actual weight in kilograms. Actual delivery counts and weights derive from its active pallet records; shipment totals derive from the pallet records of its assigned deliveries. These pallet-derived totals must not be mixed with a separate manual or legacy shipment snapshot without an approved reconciliation policy.
 
+Pallet capture and weight comparison are distinct facts. With no active pallet records, capture is awaiting. With one or more valid records, capture is complete. The weight comparison is under, exact, or over SAP gross weight when SAP gross weight is available. Exact comparison uses the persisted three-decimal kilogram values and a zero variance is valid.
+
+## Order Record Recovery
+
+An Administrator may correct approved manual operational fields on an active Order and may soft-delete or restore an Order. Soft deletion removes the Order from active operational queries but preserves its Deliveries, pallet records, shipment assignments, import history, and audit history. Restoration reactivates only the Order record; it does not duplicate or recreate related records.
+
 ## 7. Shipment Rules
 
 A shipment may contain one or more deliveries.

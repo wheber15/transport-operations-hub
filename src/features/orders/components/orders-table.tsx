@@ -4,6 +4,7 @@ import Link from "next/link";
 import { formatBusinessDate } from "@/features/orders/domain/date-formatting";
 import { formatSapWeight } from "@/features/data-management/domain/preview";
 import { ManagePalletsDialog } from "@/features/orders/components/manage-pallets-dialog";
+import { OrderAdminActions } from "@/features/orders/components/order-admin-actions";
 import type {
   OrderListItem,
   OrderSearchFilters,
@@ -14,6 +15,7 @@ type OrdersTableProps = {
   items: OrderListItem[];
   filters: OrderSearchFilters;
   canManagePallets: boolean;
+  canManageOrders: boolean;
 };
 
 function getSortHref(filters: OrderSearchFilters, field: OrderSortField) {
@@ -77,7 +79,24 @@ function SortableHeader({
   );
 }
 
-export function OrdersTable({ canManagePallets, items, filters }: OrdersTableProps) {
+function getWeightStatusLabel(status: OrderListItem["palletWeightStatus"]) {
+  return status === "under"
+    ? "Under SAP weight"
+    : status === "exact"
+      ? "Exact SAP weight"
+      : status === "over"
+        ? "Over SAP weight"
+        : status === "awaiting"
+          ? "Awaiting pallet data"
+          : "SAP gross weight unavailable";
+}
+
+export function OrdersTable({
+  canManageOrders,
+  canManagePallets,
+  items,
+  filters,
+}: OrdersTableProps) {
   return (
     <div className="min-h-0 flex-1 overflow-auto">
       <table className="w-full min-w-[760px] border-collapse">
@@ -171,7 +190,14 @@ export function OrdersTable({ canManagePallets, items, filters }: OrdersTablePro
         </thead>
         <tbody className="divide-border/80 divide-y">
           {items.map((order) => (
-            <tr className="hover:bg-muted/30 transition-colors" key={order.id}>
+            <tr
+              className={
+                order.deletedAt
+                  ? "bg-muted/40 text-muted-foreground hover:bg-muted/60 transition-colors"
+                  : "hover:bg-muted/30 transition-colors"
+              }
+              key={order.id}
+            >
               <td className="px-4 py-3.5 text-sm font-medium">
                 <Link className="text-primary hover:underline" href={`/orders/${order.id}`}>
                   {order.orderNumber}
@@ -211,28 +237,59 @@ export function OrdersTable({ canManagePallets, items, filters }: OrdersTablePro
               <td className="text-muted-foreground px-4 py-3.5 text-sm">
                 {order.weightVarianceKg ? formatSapWeight(order.weightVarianceKg) : "Not available"}
               </td>
-              <td className="text-muted-foreground px-4 py-3.5 text-sm">
-                {order.palletStatus === "awaitingActual"
-                  ? "Awaiting actual pallet data"
-                  : "Captured"}
+              <td className="px-4 py-3.5 text-sm">
+                <span
+                  className={
+                    order.palletStatus === "captured"
+                      ? "bg-primary/10 text-primary rounded-full px-2 py-1 text-xs font-medium"
+                      : "bg-muted text-muted-foreground rounded-full px-2 py-1 text-xs font-medium"
+                  }
+                >
+                  {order.palletStatus === "captured" ? "Captured" : "Awaiting pallet data"}
+                </span>
+                <p className="text-muted-foreground mt-1 text-xs">
+                  {getWeightStatusLabel(order.palletWeightStatus)}
+                </p>
               </td>
               <td className="text-muted-foreground px-4 py-3.5 text-sm">
                 {order.shipmentNumber ?? "Not assigned"}
               </td>
               <td className="px-4 py-3.5 text-right">
-                {canManagePallets && order.deliveryId && order.deliveryNumber ? (
-                  <ManagePalletsDialog
-                    deliveryId={order.deliveryId}
-                    deliveryNumber={order.deliveryNumber}
-                  />
-                ) : (
-                  <Link
-                    className="text-primary text-sm hover:underline"
-                    href={`/orders/${order.id}`}
-                  >
-                    View details
-                  </Link>
-                )}
+                <div className="inline-flex items-center justify-end gap-1">
+                  {canManagePallets &&
+                  order.deliveryId &&
+                  order.deliveryNumber &&
+                  !order.deletedAt ? (
+                    <ManagePalletsDialog
+                      deliveryId={order.deliveryId}
+                      deliveryNumber={order.deliveryNumber}
+                    />
+                  ) : !canManageOrders ? (
+                    <Link
+                      className="text-primary text-sm hover:underline"
+                      href={`/orders/${order.id}`}
+                    >
+                      View details
+                    </Link>
+                  ) : null}
+                  {canManageOrders ? (
+                    <OrderAdminActions
+                      order={{
+                        id: order.id,
+                        orderNumber: order.orderNumber,
+                        customerName: order.customerName,
+                        deliveryNumber: order.deliveryNumber,
+                        pickingNumber: order.pickingNumber,
+                        goodsIssueDate: order.goodsIssueDate?.toISOString().slice(0, 10) ?? null,
+                        shipToNumber: order.shipToNumber,
+                        routeCode: order.routeCode,
+                        shippingPoint: order.shippingPoint,
+                        grossWeightKg: order.grossWeightKg,
+                        deletedAt: order.deletedAt?.toISOString() ?? null,
+                      }}
+                    />
+                  ) : null}
+                </div>
               </td>
             </tr>
           ))}

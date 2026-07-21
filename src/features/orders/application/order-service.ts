@@ -5,10 +5,14 @@ import {
   listOrders as listOrdersFromRepository,
   getOrdersSummary as getOrdersSummaryFromRepository,
   searchOrders as searchOrdersFromRepository,
+  restoreOrder as restoreOrderFromRepository,
+  softDeleteOrder as softDeleteOrderFromRepository,
+  updateActiveOrder as updateActiveOrderFromRepository,
 } from "@/features/orders/infrastructure/order-repository";
 import {
   orderIdSchema,
   orderSearchFiltersSchema,
+  orderAdminUpdateSchema,
 } from "@/features/orders/validation/order-schemas";
 import { resolveGoodsIssueDateScope } from "@/features/orders/domain/goods-issue-date";
 
@@ -18,6 +22,11 @@ export class OrderNotFoundError extends Error {
   }
 }
 export class OrderRecordStateForbiddenError extends Error {}
+export class OrderAdministrationForbiddenError extends Error {}
+
+function requireAdministrator(actor: { id: string; role: string | null }) {
+  if (actor.role !== "Administrator") throw new OrderAdministrationForbiddenError();
+}
 
 export type OrderServiceDependencies = {
   activityRecorder?: OrderActivityRecorder;
@@ -32,16 +41,28 @@ export async function listOrders(input: unknown, actor?: { role: string | null }
     from: filters.goodsIssueFrom,
     to: filters.goodsIssueTo,
   });
-  const result = await listOrdersFromRepository({ ...filters, goodsIssueFrom: scope.from, goodsIssueTo: scope.to });
+  const result = await listOrdersFromRepository({
+    ...filters,
+    goodsIssueFrom: scope.from,
+    goodsIssueTo: scope.to,
+  });
 
   return { ...result, filters };
 }
 
 export async function getOrdersSummary(input: unknown, actor?: { role: string | null }) {
   const filters = orderSearchFiltersSchema.parse(input);
-  if (filters.recordState !== "active" && actor?.role !== "Administrator") throw new OrderRecordStateForbiddenError();
-  const scope = resolveGoodsIssueDateScope(filters.datePreset, new Date(), { from: filters.goodsIssueFrom, to: filters.goodsIssueTo });
-  return getOrdersSummaryFromRepository({ ...filters, goodsIssueFrom: scope.from, goodsIssueTo: scope.to });
+  if (filters.recordState !== "active" && actor?.role !== "Administrator")
+    throw new OrderRecordStateForbiddenError();
+  const scope = resolveGoodsIssueDateScope(filters.datePreset, new Date(), {
+    from: filters.goodsIssueFrom,
+    to: filters.goodsIssueTo,
+  });
+  return getOrdersSummaryFromRepository({
+    ...filters,
+    goodsIssueFrom: scope.from,
+    goodsIssueTo: scope.to,
+  });
 }
 
 export async function searchOrders(query: unknown) {
@@ -76,5 +97,33 @@ export function getValidatedOrderFilters(input: unknown): OrderSearchFilters {
     to: filters.goodsIssueTo,
   });
   return { ...filters, goodsIssueFrom: scope.from, goodsIssueTo: scope.to };
+}
+
+export async function updateOrder(
+  actor: { id: string; role: string | null },
+  id: unknown,
+  input: unknown
+) {
+  requireAdministrator(actor);
+  const orderId = orderIdSchema.parse(id);
+  const updated = await updateActiveOrderFromRepository(
+    actor.id,
+    orderId,
+    orderAdminUpdateSchema.parse(input)
+  );
+  if (!updated) throw new OrderNotFoundError();
+  return updated;
+}
+
+export async function deleteOrder(actor: { id: string; role: string | null }, id: unknown) {
+  requireAdministrator(actor);
+  const changed = await softDeleteOrderFromRepository(actor.id, orderIdSchema.parse(id));
+  if (!changed) throw new OrderNotFoundError();
+}
+
+export async function restoreOrder(actor: { id: string; role: string | null }, id: unknown) {
+  requireAdministrator(actor);
+  const changed = await restoreOrderFromRepository(actor.id, orderIdSchema.parse(id));
+  if (!changed) throw new OrderNotFoundError();
 }
 import "server-only";

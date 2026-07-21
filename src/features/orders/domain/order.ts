@@ -36,6 +36,7 @@ export type OrderListItem = {
   salesRepName: string | null;
   shipToNumber: string | null;
   routeCode: string | null;
+  shippingPoint: string | null;
   grossWeightKg: string | null;
   estimatedPalletCount: number | null;
   deliveryNumber: string | null;
@@ -45,6 +46,9 @@ export type OrderListItem = {
   actualPalletWeightKg: string | null;
   weightVarianceKg: string | null;
   palletStatus: "awaitingActual" | "captured";
+  palletWeightStatus: "awaiting" | "under" | "exact" | "over" | "unavailable";
+  deletedAt: Date | null;
+  deletedByName: string | null;
 };
 
 export type OrderDetail = OrderListItem & {
@@ -59,6 +63,7 @@ export type OrderDetail = OrderListItem & {
     actualPalletWeightKg: string | null;
     weightVarianceKg: string | null;
     palletStatus: "awaitingActual" | "captured";
+    palletWeightStatus: "awaiting" | "under" | "exact" | "over" | "unavailable";
     shipmentNumber: string | null;
   }>;
 };

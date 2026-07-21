@@ -48,3 +48,35 @@ export const orderUpdateSchema = z
 
 export type OrderCreateInput = z.infer<typeof orderCreateSchema>;
 export type OrderUpdateInput = z.infer<typeof orderUpdateSchema>;
+
+const optionalManualText = z.preprocess(
+  (value) => (typeof value === "string" && value.trim() === "" ? null : value),
+  z.string().trim().min(1).max(200).nullable().optional()
+);
+
+const positiveDecimal = z
+  .string()
+  .trim()
+  .regex(/^(?:0|[1-9]\d*)(?:\.\d{1,3})?$/, "Enter a valid weight with up to three decimal places.")
+  .refine(
+    (value) => value !== "0" && !/^0\.0{1,3}$/.test(value),
+    "SAP gross weight must be above 0 kg."
+  )
+  .nullable()
+  .optional();
+
+export const orderAdminUpdateSchema = z
+  .object({
+    pickingNumber: optionalManualText,
+    goodsIssueDate: z.string().date().nullable().optional(),
+    shipToNumber: optionalManualText,
+    routeCode: optionalManualText,
+    shippingPoint: optionalManualText,
+    grossWeightKg: positiveDecimal,
+  })
+  .strict()
+  .refine((data) => Object.values(data).some((value) => value !== undefined), {
+    message: "At least one approved Order field is required.",
+  });
+
+export type OrderAdminUpdateInput = z.infer<typeof orderAdminUpdateSchema>;

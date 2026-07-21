@@ -8,7 +8,7 @@ describe("pallet weight domain", () => {
       palletCount: 4,
       actualPalletWeightKg: "32.620",
       varianceKg: "0.000",
-      status: "matches",
+      status: "captured",
     });
   });
 
@@ -39,5 +39,15 @@ describe("pallet weight domain", () => {
     expect(isValidPalletWeight("1000.001")).toBe(false);
     expect(isValidPalletWeight("8.1234")).toBe(false);
     expect(isValidPalletWeight("8.250")).toBe(true);
+  });
+
+  it("reports a captured set regardless of whether it is over, under, or equal to SAP gross weight", () => {
+    expect(calculatePalletWeightSummary(["420", "395", "405"], "1200")).toEqual({
+      palletCount: 3,
+      actualPalletWeightKg: "1220.000",
+      varianceKg: "20.000",
+      status: "captured",
+    });
+    expect(calculatePalletWeightSummary(["400"], "1200").varianceKg).toBe("-800.000");
   });
 });

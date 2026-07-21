@@ -7,7 +7,7 @@ export type PalletWeightSummary = {
   actualPalletWeightKg: string | null;
   palletCount: number;
   varianceKg: string | null;
-  status: "awaitingActual" | "captured" | "matches" | "under" | "over";
+  status: "awaitingActual" | "captured";
 };
 
 function toMilligrams(value: string) {
@@ -38,7 +38,12 @@ export function calculatePalletWeightSummary(
   sapGrossWeightKg: string | null
 ): PalletWeightSummary {
   if (palletWeightsKg.length === 0) {
-    return { palletCount: 0, actualPalletWeightKg: null, varianceKg: null, status: "awaitingActual" };
+    return {
+      palletCount: 0,
+      actualPalletWeightKg: null,
+      varianceKg: null,
+      status: "awaitingActual",
+    };
   }
 
   const total = palletWeightsKg.reduce((sum, value) => sum + (toMilligrams(value) ?? 0), 0);
@@ -46,7 +51,12 @@ export function calculatePalletWeightSummary(
   const sapWeight = sapGrossWeightKg ? toMilligrams(sapGrossWeightKg) : null;
 
   if (sapWeight === null) {
-    return { palletCount: palletWeightsKg.length, actualPalletWeightKg, varianceKg: null, status: "captured" };
+    return {
+      palletCount: palletWeightsKg.length,
+      actualPalletWeightKg,
+      varianceKg: null,
+      status: "captured",
+    };
   }
 
   const variance = total - sapWeight;
@@ -54,6 +64,6 @@ export function calculatePalletWeightSummary(
     palletCount: palletWeightsKg.length,
     actualPalletWeightKg,
     varianceKg: formatMilligrams(variance),
-    status: variance === 0 ? "matches" : variance < 0 ? "under" : "over",
+    status: "captured",
   };
 }

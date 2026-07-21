@@ -44,7 +44,7 @@ export type OrderListItem = {
   actualPalletCount: number | null;
   actualPalletWeightKg: string | null;
   weightVarianceKg: string | null;
-  palletStatus: "awaitingActual" | "captured" | "matches" | "under" | "over";
+  palletStatus: "awaitingActual" | "captured";
 };
 
 export type OrderDetail = OrderListItem & {
@@ -58,12 +58,17 @@ export type OrderDetail = OrderListItem & {
     actualPalletCount: number | null;
     actualPalletWeightKg: string | null;
     weightVarianceKg: string | null;
-    palletStatus: "awaitingActual" | "captured" | "matches" | "under" | "over";
+    palletStatus: "awaitingActual" | "captured";
     shipmentNumber: string | null;
   }>;
 };
 
-export type OrdersSummary = { orders: number; deliveries: number; assignedToShipment: number; awaitingActualPalletData: number };
+export type OrdersSummary = {
+  orders: number;
+  deliveries: number;
+  assignedToShipment: number;
+  awaitingActualPalletData: number;
+};
 
 export type OrderActivityEvent = {
   actorId: string;

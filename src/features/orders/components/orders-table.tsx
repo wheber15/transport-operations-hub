@@ -137,11 +137,36 @@ export function OrdersTable({ canManagePallets, items, filters }: OrdersTablePro
             >
               Actual Pallets
             </th>
-            <th className="text-muted-foreground px-4 py-3 text-left text-xs font-medium tracking-wide uppercase" scope="col">Actual Pallet Weight</th>
-            <th className="text-muted-foreground px-4 py-3 text-left text-xs font-medium tracking-wide uppercase" scope="col">Weight variance</th>
-            <th className="text-muted-foreground px-4 py-3 text-left text-xs font-medium tracking-wide uppercase" scope="col">Status</th>
-            <th className="text-muted-foreground px-4 py-3 text-left text-xs font-medium tracking-wide uppercase" scope="col">Shipment</th>
-            <th className="text-muted-foreground px-4 py-3 text-right text-xs font-medium tracking-wide uppercase" scope="col">Actions</th>
+            <th
+              className="text-muted-foreground px-4 py-3 text-left text-xs font-medium tracking-wide uppercase"
+              scope="col"
+            >
+              Actual Pallet Weight
+            </th>
+            <th
+              className="text-muted-foreground px-4 py-3 text-left text-xs font-medium tracking-wide uppercase"
+              scope="col"
+            >
+              Weight variance
+            </th>
+            <th
+              className="text-muted-foreground px-4 py-3 text-left text-xs font-medium tracking-wide uppercase"
+              scope="col"
+            >
+              Status
+            </th>
+            <th
+              className="text-muted-foreground px-4 py-3 text-left text-xs font-medium tracking-wide uppercase"
+              scope="col"
+            >
+              Shipment
+            </th>
+            <th
+              className="text-muted-foreground px-4 py-3 text-right text-xs font-medium tracking-wide uppercase"
+              scope="col"
+            >
+              Actions
+            </th>
           </tr>
         </thead>
         <tbody className="divide-border/80 divide-y">
@@ -180,11 +205,35 @@ export function OrdersTable({ canManagePallets, items, filters }: OrdersTablePro
               <td className="text-muted-foreground px-4 py-3.5 text-sm">
                 {order.actualPalletCount === null ? "Not captured" : order.actualPalletCount}
               </td>
-              <td className="text-muted-foreground px-4 py-3.5 text-sm">{formatSapWeight(order.actualPalletWeightKg) ?? "Not counted"}</td>
-              <td className="text-muted-foreground px-4 py-3.5 text-sm">{order.weightVarianceKg ? formatSapWeight(order.weightVarianceKg) : "Not available"}</td>
-              <td className="text-muted-foreground px-4 py-3.5 text-sm">{order.palletStatus === "awaitingActual" ? "Awaiting actual pallet data" : order.palletStatus === "captured" ? "Actual pallets captured" : order.palletStatus === "matches" ? "Weight matches" : order.palletStatus === "under" ? "Under SAP weight" : "Over SAP weight"}</td>
-              <td className="text-muted-foreground px-4 py-3.5 text-sm">{order.shipmentNumber ?? "Not assigned"}</td>
-              <td className="px-4 py-3.5 text-right">{canManagePallets && order.deliveryId && order.deliveryNumber ? <ManagePalletsDialog deliveryId={order.deliveryId} deliveryNumber={order.deliveryNumber} /> : <Link className="text-primary text-sm hover:underline" href={`/orders/${order.id}`}>View details</Link>}</td>
+              <td className="text-muted-foreground px-4 py-3.5 text-sm">
+                {formatSapWeight(order.actualPalletWeightKg) ?? "Not counted"}
+              </td>
+              <td className="text-muted-foreground px-4 py-3.5 text-sm">
+                {order.weightVarianceKg ? formatSapWeight(order.weightVarianceKg) : "Not available"}
+              </td>
+              <td className="text-muted-foreground px-4 py-3.5 text-sm">
+                {order.palletStatus === "awaitingActual"
+                  ? "Awaiting actual pallet data"
+                  : "Captured"}
+              </td>
+              <td className="text-muted-foreground px-4 py-3.5 text-sm">
+                {order.shipmentNumber ?? "Not assigned"}
+              </td>
+              <td className="px-4 py-3.5 text-right">
+                {canManagePallets && order.deliveryId && order.deliveryNumber ? (
+                  <ManagePalletsDialog
+                    deliveryId={order.deliveryId}
+                    deliveryNumber={order.deliveryNumber}
+                  />
+                ) : (
+                  <Link
+                    className="text-primary text-sm hover:underline"
+                    href={`/orders/${order.id}`}
+                  >
+                    View details
+                  </Link>
+                )}
+              </td>
             </tr>
           ))}
         </tbody>

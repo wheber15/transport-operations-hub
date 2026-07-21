@@ -29,7 +29,10 @@ export async function GET(_: Request, { params }: { params: Promise<{ id: string
       {
         error: {
           code: error instanceof DataImportForbiddenError ? "FORBIDDEN" : "NOT_FOUND",
-          message: "Import batch is unavailable.",
+          message:
+            error instanceof DataImportForbiddenError
+              ? "You are not allowed to access this import batch."
+              : "Import batch was not found.",
         },
       },
       { status: error instanceof DataImportForbiddenError ? 403 : 404 }

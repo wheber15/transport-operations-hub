@@ -16,14 +16,6 @@ export async function POST(_: Request, { params }: { params: Promise<{ id: strin
         status: batch?.status,
         totalRows: batch?.totalRows,
         validRows: batch?.validRows,
-        rows: batch?.rows.slice(0, 100).map((row) => ({
-          sourceRowNumber: row.sourceRowNumber,
-          identifier: row.identifier,
-          classification: row.classification,
-          message: row.message,
-          currentValues: row.currentValues,
-          proposedValues: row.proposedValues,
-        })),
       },
     });
   } catch (error) {

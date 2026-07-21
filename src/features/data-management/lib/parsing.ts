@@ -1,8 +1,16 @@
 import ExcelJS from "exceljs";
 import { parse } from "csv-parse/sync";
 import { importLimits } from "@/features/data-management/domain/constants";
+import { toJsonSafeValue } from "@/features/data-management/lib/json-safe";
 
-export type ParsedWorkbook = { sheets: { name: string; rows: string[][] }[] };
+export type SpreadsheetCell = string | null;
+export type ParsedWorkbook = { sheets: { name: string; rows: SpreadsheetCell[][] }[] };
+
+const xlsxMimeTypes = new Set([
+  "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+  "application/octet-stream",
+]);
+const csvMimeTypes = new Set(["text/csv", "application/csv", "text/plain"]);
 
 export function normalizeIdentifier(value: unknown) {
   return String(value ?? "").trim();
@@ -41,19 +49,32 @@ export function parseBusinessDate(value: string): string | null {
     ? date.toISOString().slice(0, 10)
     : null;
 }
-function cellToString(value: ExcelJS.CellValue) {
+function cellToString(value: ExcelJS.CellValue | undefined): SpreadsheetCell {
+  if (value === undefined || value === null) return null;
   if (value && typeof value === "object" && "formula" in value) return "__FORMULA__";
   if (value instanceof Date) return value.toISOString().slice(0, 10);
-  return normalizeIdentifier(value);
+  const safe = toJsonSafeValue(value);
+  if (safe === null) return null;
+  if (typeof safe === "string" || typeof safe === "number" || typeof safe === "boolean")
+    return normalizeIdentifier(safe);
+  throw new Error("The spreadsheet contained an unsupported cell value.");
 }
-function validateRows(rows: string[][]) {
+function isEmptyRow(row: SpreadsheetCell[]) {
+  return row.every((cell) => cell === null || cell.trim() === "");
+}
+function trimTrailingEmptyRows(rows: SpreadsheetCell[][]) {
+  let lastMeaningful = rows.length - 1;
+  while (lastMeaningful >= 0 && isEmptyRow(rows[lastMeaningful])) lastMeaningful--;
+  return rows.slice(0, lastMeaningful + 1);
+}
+function validateRows(rows: SpreadsheetCell[][]) {
   if (rows.length === 0 || rows.length > importLimits.maxRows + importLimits.maxHeaderRow)
     throw new Error("The workbook has an unsupported row count.");
   if (
     rows.some(
       (row) =>
         row.length > importLimits.maxColumns ||
-        row.some((cell) => cell.length > importLimits.maxCellLength)
+        row.some((cell) => cell !== null && cell.length > importLimits.maxCellLength)
     )
   )
     throw new Error("The workbook exceeds the supported column or cell limits.");
@@ -64,24 +85,36 @@ export async function parseImportFile(file: File): Promise<ParsedWorkbook> {
   const name = file.name.toLowerCase();
   const bytes = Buffer.from(await file.arrayBuffer());
   if (name.endsWith(".csv")) {
+    if (file.type && !csvMimeTypes.has(file.type))
+      throw new Error("The CSV file has an unsupported content type.");
     const rows = parse(bytes, { bom: true, relax_column_count: true, skip_empty_lines: true }).map(
-      (row: unknown[]) => row.map(normalizeIdentifier)
+      (row: unknown[]) =>
+        Array.from({ length: row.length }, (_, index) => normalizeIdentifier(row[index]))
     );
     validateRows(rows);
     return { sheets: [{ name: "CSV", rows }] };
   }
   if (!name.endsWith(".xlsx")) throw new Error("Only .xlsx and .csv files are supported.");
+  if (file.type && !xlsxMimeTypes.has(file.type))
+    throw new Error("The XLSX file has an unsupported content type.");
+  if (!bytes.subarray(0, 4).equals(Buffer.from([0x50, 0x4b, 0x03, 0x04])))
+    throw new Error("The XLSX file is malformed or is not an Office Open XML workbook.");
   const workbook = new ExcelJS.Workbook();
   await workbook.xlsx.load(bytes as never, { ignoreNodes: ["extLst"] });
   const sheets = workbook.worksheets
     .map((sheet) => ({
       name: sheet.name,
-      rows: sheet
-        .getSheetValues()
-        .slice(1)
-        .map((row) => (Array.isArray(row) ? row.slice(1).map(cellToString) : [])),
+      rows: trimTrailingEmptyRows(
+        Array.from({ length: sheet.rowCount }, (_, rowIndex) => {
+          const values = sheet.getRow(rowIndex + 1).values;
+          const width = Array.isArray(values) ? Math.max(0, values.length - 1) : 0;
+          return Array.from({ length: width }, (_, columnIndex) =>
+            cellToString(Array.isArray(values) ? values[columnIndex + 1] : undefined)
+          );
+        })
+      ),
     }))
-    .filter((sheet) => sheet.rows.some((row) => row.some(Boolean)));
+    .filter((sheet) => sheet.rows.some((row) => !isEmptyRow(row)));
   if (!sheets.length) throw new Error("The workbook does not contain a usable sheet.");
   sheets.forEach((sheet) => validateRows(sheet.rows));
   return { sheets };

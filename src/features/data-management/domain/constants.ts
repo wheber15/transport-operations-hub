@@ -1,4 +1,4 @@
-export const importTypes = ["deliveryReference", "operationalSchedule"] as const;
+export const importTypes = ["deliveryReference", "operationalSchedule", "sapOrderBook"] as const;
 export type ImportType = (typeof importTypes)[number];
 
 export const importBatchStatuses = ["uploaded", "previewed", "committed", "failed"] as const;
@@ -16,6 +16,13 @@ export const importRowClassifications = [
   "unsupportedField",
   "relatedRecordNotFound",
   "unavailableRecord",
+  "readyToCreate",
+  "readyToUpdate",
+  "missingDetailRow",
+  "conflictingDetailData",
+  "duplicateDelivery",
+  "alreadyAssignedToShipment",
+  "requiresReview",
 ] as const;
 export type ImportRowClassification = (typeof importRowClassifications)[number];
 

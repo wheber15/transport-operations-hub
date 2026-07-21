@@ -3,14 +3,20 @@ import { Prisma } from "@/generated/prisma/client";
 import { canManageDataImports } from "@/features/auth/domain/roles";
 import { importFieldAliases, importLimits } from "@/features/data-management/domain/constants";
 import {
+  formatSapWeight,
+  getImportClassificationLabel,
+} from "@/features/data-management/domain/preview";
+import {
   parseBusinessDate,
   parseImportFile,
   parseSapWeight,
 } from "@/features/data-management/lib/parsing";
 import * as repository from "@/features/data-management/infrastructure/data-import-repository";
+import { correlateSapOrderBook } from "@/features/sap-order-book/domain/sap-order-book";
 import {
   importTypeSchema,
   mappingSchema,
+  previewRowsQuerySchema,
 } from "@/features/data-management/validation/data-import-schemas";
 
 export class DataImportForbiddenError extends Error {}
@@ -34,7 +40,22 @@ const allowedFields = {
     "scheduleSource",
     "sourceReference",
   ],
+  sapOrderBook: [],
 } as const;
+const previewFields = [
+  "deliveryNumber",
+  "customerName",
+  "orderNumber",
+  "goodsIssueDate",
+  "shipToNumber",
+  "routeCode",
+  "grossWeightKg",
+  "shipmentNumber",
+  "scheduledDispatchDate",
+  "scheduleSource",
+  "sourceReference",
+  "shippingPoint",
+] as const;
 function requireRole(actor: Actor) {
   if (!canManageDataImports(actor.role)) throw new DataImportForbiddenError();
 }
@@ -60,10 +81,130 @@ function sheetSummary(rows: { sheetName: string; mappedValues: unknown }[]) {
     };
   });
 }
+function valuesFromJson(value: unknown) {
+  const candidate = value as { values?: unknown[] } | null;
+  return Array.isArray(candidate?.values) ? candidate.values.map((cell) => String(cell ?? "")) : [];
+}
+function recordFromJson(value: unknown) {
+  return value && typeof value === "object" && !Array.isArray(value)
+    ? (value as Record<string, string | null>)
+    : {};
+}
+function visibleCell(value: string) {
+  return value === "__FORMULA__" ? "Formula (unsupported)" : value;
+}
 export async function uploadImport(actor: Actor, importTypeInput: unknown, file: File) {
   requireRole(actor);
   const importType = importTypeSchema.parse(importTypeInput);
   const workbook = await parseImportFile(file);
+  if (importType === "sapOrderBook") {
+    const detectedSheets = workbook.sheets.flatMap((sheet) => {
+      try {
+        return [
+          {
+            sheet,
+            result: correlateSapOrderBook(sheet.rows.map((row) => row.map((cell) => cell ?? ""))),
+          },
+        ];
+      } catch {
+        return [];
+      }
+    });
+    if (!detectedSheets.length) throw new Error("HEADER_NOT_FOUND");
+    const matches = detectedSheets.filter((match) => match.result.records.length > 0);
+    if (!matches.length) throw new Error("NO_PROCESSED_ROWS");
+    if (matches.length > 1) throw new Error("CONFLICTING_DETAIL_DATA");
+    const { sheet, result } = matches[0];
+    const existing = await repository.getActiveDeliveryRecords(
+      result.records.map((record) => record.deliveryNumber)
+    );
+    const existingByNumber = new Map(
+      existing.map((delivery) => [delivery.deliveryNumber, delivery])
+    );
+    return repository.createSapOrderBookBatch({
+      actorId: actor.id,
+      originalFileName: safeName(file.name),
+      sheetName: sheet.name,
+      headerRowNumber: result.headerRowNumber,
+      rows: result.records.map((record) => {
+        const current = existingByNumber.get(record.deliveryNumber);
+        const baseClassification =
+          record.classification === "readyToCreate" && !record.customerName
+            ? "requiresReview"
+            : record.classification === "readyToCreate" &&
+                current &&
+                current.order.orderNumber !== record.orderNumber
+              ? "requiresReview"
+              : record.classification === "readyToCreate"
+                ? current
+                  ? "readyToUpdate"
+                  : "readyToCreate"
+                : record.classification === "missingDetailRow"
+                  ? "missingDetailRow"
+                  : record.classification === "invalidWeight"
+                    ? "invalidWeight"
+                    : record.classification === "invalidIdentifier"
+                      ? "invalidIdentifier"
+                      : record.classification === "duplicateDelivery"
+                        ? "duplicateDelivery"
+                        : "requiresReview";
+        const classification =
+          current?.shipmentId && ["readyToCreate", "readyToUpdate"].includes(baseClassification)
+            ? "alreadyAssignedToShipment"
+            : baseClassification;
+        return {
+          sourceRowNumber: record.headerRowNumber,
+          identifier: record.deliveryNumber,
+          classification,
+          message:
+            classification === "requiresReview" && !record.customerName
+              ? "Customer Name is required before this Delivery can be created."
+              : classification === "requiresReview" &&
+                  current?.order.orderNumber !== record.orderNumber
+                ? "Delivery belongs to a different Sales Order."
+                : classification === "readyToCreate"
+                  ? "Ready to create."
+                  : classification === "readyToUpdate"
+                    ? "Ready to update; existing Shipment assignment will be preserved."
+                    : record.message,
+          currentValues: current
+            ? {
+                orderNumber: current.order.orderNumber,
+                customerName: current.order.customer.name,
+                shipmentNumber: current.shipmentId ? "Assigned" : null,
+              }
+            : null,
+          proposedValues: {
+            deliveryNumber: record.deliveryNumber,
+            orderNumber: record.orderNumber,
+            customerName: record.customerName,
+            shipToNumber: record.shipToNumber,
+            routeCode: record.routeCode,
+            goodsIssueDate: record.goodsIssueDate,
+            grossWeightKg: record.grossWeightKg,
+            shippingPoint: record.shippingPoint,
+            processedSourceRow: record.headerRowNumber,
+            matchedDetailSourceRows: record.detailRowNumbers,
+            individualDetailWeights: record.detailWeightValues,
+            conflicts: record.conflicts,
+            proposedAction: classification,
+          },
+        };
+      }),
+    });
+  }
+  if (
+    importType === "deliveryReference" &&
+    workbook.sheets.some((sheet) => {
+      try {
+        correlateSapOrderBook(sheet.rows.map((row) => row.map((cell) => cell ?? "")));
+        return true;
+      } catch {
+        return false;
+      }
+    })
+  )
+    throw new Error("SAP_ORDER_BOOK_REQUIRED");
   return repository.createImportBatch({
     actorId: actor.id,
     importType,
@@ -138,6 +279,8 @@ export async function saveMapping(actor: Actor, id: string, input: unknown) {
   const { batch } = await getBatch(actor, id);
   requireMutable(batch);
   const parsed = mappingSchema.extend({ importType: importTypeSchema }).parse(input);
+  if (parsed.importType === "sapOrderBook")
+    throw new Error("SAP Order Book columns are detected automatically.");
   if (
     !batch.selectedSheetName ||
     batch.selectedHeaderRow !== parsed.headerRow ||
@@ -277,6 +420,102 @@ export async function previewImport(actor: Actor, id: string) {
     }[],
   });
   return repository.getImportBatch(id);
+}
+export async function getImportPreviewRows(actor: Actor, id: string, queryInput: unknown) {
+  requireRole(actor);
+  const query = previewRowsQuerySchema.parse(queryInput);
+  const batch = await repository.getImportBatchPreviewContext(id);
+  if (!batch) throw new Error("Import batch not found.");
+  if (!batch.selectedSheetName || !batch.selectedHeaderRow)
+    throw new Error("Select a sheet and header row before viewing rows.");
+  if (query.view === "preview" && !batch.mapping)
+    throw new Error("Confirm the column mapping before viewing the import preview.");
+  const header =
+    batch.importType === "sapOrderBook"
+      ? null
+      : await repository.getImportHeaderRow(
+          batch.id,
+          batch.selectedSheetName,
+          batch.selectedHeaderRow
+        );
+  const columns = valuesFromJson(header?.mappedValues).map((label, index) => ({
+    index,
+    label: label || `Column ${index + 1}`,
+  }));
+  const result = await repository.getPreviewRows({
+    batchId: batch.id,
+    sheetName: batch.selectedSheetName,
+    headerRow: batch.selectedHeaderRow,
+    page: query.page,
+    pageSize: query.pageSize,
+    ...(query.view === "preview"
+      ? { classification: query.classification, query: query.query }
+      : {}),
+  });
+  const classificationCounts = Object.fromEntries(
+    result.classifications.map((entry) => [
+      entry.classification,
+      typeof entry._count === "object" && entry._count ? (entry._count._all ?? 0) : 0,
+    ])
+  );
+  if (query.view === "raw") {
+    return {
+      view: "raw" as const,
+      columns,
+      rows: result.rows.map((row) => ({
+        sourceRowNumber: row.sourceRowNumber,
+        values: valuesFromJson(row.mappedValues).map(visibleCell),
+      })),
+      meta: { page: query.page, pageSize: query.pageSize, total: result.total },
+    };
+  }
+  const mapping = batch.mapping as Record<string, string>;
+  const mappedFields = new Set(Object.keys(mapping));
+  return {
+    view: "preview" as const,
+    importType: batch.importType,
+    mappedFields: [...mappedFields],
+    rows: result.rows.map((row) => {
+      const proposed = recordFromJson(row.proposedValues);
+      const current = recordFromJson(row.currentValues);
+      const displayValues = Object.fromEntries(
+        previewFields
+          .filter((field) => mappedFields.has(field) || field === "deliveryNumber")
+          .map((field) => [field, proposed[field] ?? current[field] ?? null])
+      ) as Record<string, string | null>;
+      const rawWeight = proposed.grossWeightKg ?? null;
+      const parsedWeight = rawWeight ? parseSapWeight(rawWeight) : null;
+      return {
+        sourceRowNumber: row.sourceRowNumber,
+        identifier: row.identifier,
+        displayValues: {
+          ...displayValues,
+          grossWeightRaw: rawWeight,
+          grossWeightKg: parsedWeight ? formatSapWeight(parsedWeight) : rawWeight,
+        },
+        currentValues: Object.fromEntries(
+          previewFields
+            .filter((field) => current[field] !== undefined)
+            .map((field) => [field, current[field]])
+        ),
+        proposedValues: Object.fromEntries(
+          previewFields
+            .filter((field) => proposed[field] !== undefined)
+            .map((field) => [field, proposed[field]])
+        ),
+        classification: row.classification,
+        classificationLabel: getImportClassificationLabel(row.classification),
+        message: row.message,
+        issues: ["validUpdate", "unchanged", "readyToCreate", "readyToUpdate"].includes(
+          row.classification
+        )
+          ? []
+          : [row.message],
+      };
+    }),
+    counts: classificationCounts,
+    meta: { page: query.page, pageSize: query.pageSize, total: result.total },
+  };
 }
 export async function commitImport(actor: Actor, id: string) {
   requireRole(actor);

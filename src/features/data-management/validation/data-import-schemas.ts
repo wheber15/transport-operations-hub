@@ -19,3 +19,11 @@ export const mappingSchema = z
       used.add(source);
     });
   });
+
+export const previewRowsQuerySchema = z.object({
+  view: z.enum(["raw", "preview"]).default("preview"),
+  page: z.coerce.number().int().min(1).default(1),
+  pageSize: z.coerce.number().int().min(1).max(100).default(20),
+  classification: z.string().max(64).optional(),
+  query: z.string().trim().max(100).optional(),
+});

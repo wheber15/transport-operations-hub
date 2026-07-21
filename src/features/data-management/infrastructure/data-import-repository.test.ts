@@ -45,8 +45,15 @@ function transactionMock(overrides?: Partial<Record<string, unknown>>) {
       }),
       update: vi.fn().mockResolvedValue({ status: "committed", importedRows: 1, skippedRows: 0 }),
     },
-    delivery: { findFirst: vi.fn().mockResolvedValue(delivery) },
-    order: { update: vi.fn().mockResolvedValue({}) },
+    delivery: {
+      findFirst: vi.fn().mockResolvedValue(delivery),
+      create: vi.fn().mockResolvedValue({}),
+    },
+    customer: { findFirst: vi.fn().mockResolvedValue({ id: "customer" }), create: vi.fn() },
+    order: {
+      update: vi.fn().mockResolvedValue({}),
+      upsert: vi.fn().mockResolvedValue({ id: delivery.orderId }),
+    },
     operationalSchedule: { upsert: vi.fn().mockResolvedValue({}) },
     importRow: { update: vi.fn().mockResolvedValue({}) },
     activity: { create: vi.fn().mockResolvedValue({}) },
@@ -93,7 +100,56 @@ describe("import commit repository", () => {
       importBatch: { findFirst: vi.fn().mockResolvedValue({ status: "committed" }) },
     });
     prismaMock.$transaction.mockImplementation(async (callback) => callback(tx));
-    await expect(commitBatch(batchId, actorId)).rejects.toThrow("not ready");
+    await expect(commitBatch(batchId, actorId)).rejects.toThrow("BATCH_ALREADY_COMMITTED");
+  });
+  it("creates SAP Order Book records without changing an existing Shipment assignment", async () => {
+    const tx = transactionMock({
+      importBatch: {
+        findFirst: vi.fn().mockResolvedValue({
+          id: batchId,
+          status: "previewed",
+          importType: "sapOrderBook",
+          originalFileName: "order-book.xlsx",
+          rows: [
+            {
+              id: "sap-row",
+              identifier: "9100000001",
+              classification: "alreadyAssignedToShipment",
+              proposedValues: {
+                orderNumber: "1040000001",
+                customerName: "Customer",
+                grossWeightKg: "7.000",
+              },
+            },
+          ],
+        }),
+        update: vi.fn().mockResolvedValue({ status: "committed", importedRows: 1, skippedRows: 0 }),
+      },
+      delivery: {
+        findFirst: vi.fn().mockResolvedValue({
+          ...delivery,
+          shipmentId: "shipment-id",
+          order: { orderNumber: "1040000001" },
+        }),
+        create: vi.fn(),
+      },
+    });
+    prismaMock.$transaction.mockImplementation(async (callback) => callback(tx));
+    await commitBatch(batchId, actorId);
+    expect(tx.order.upsert).toHaveBeenCalledWith(
+      expect.objectContaining({ where: { orderNumber: "1040000001" } })
+    );
+    expect(tx.delivery.create).not.toHaveBeenCalled();
+    expect(tx.activity.create).toHaveBeenCalledTimes(1);
+  });
+  it("uses an explicit interactive transaction window for multi-row SAP imports", async () => {
+    const tx = transactionMock();
+    prismaMock.$transaction.mockImplementation(async (callback) => callback(tx));
+    await commitBatch(batchId, actorId);
+    expect(prismaMock.$transaction).toHaveBeenCalledWith(expect.any(Function), {
+      maxWait: 10_000,
+      timeout: 60_000,
+    });
   });
   it("rolls back when Activity creation fails", async () => {
     const tx = transactionMock({

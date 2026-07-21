@@ -15,6 +15,16 @@ export type OrderSearchFilters = {
   query?: string;
   sortBy: OrderSortField;
   sortDirection: OrderSortDirection;
+  datePreset: "today" | "yesterday" | "thisWeek" | "all" | "custom";
+  goodsIssueFrom?: string;
+  goodsIssueTo?: string;
+  customer?: string;
+  route?: string;
+  shipTo?: string;
+  shipmentState?: "all" | "assigned" | "unassigned";
+  palletState?: "all" | "awaiting" | "captured";
+  status?: string;
+  recordState?: "active" | "deleted" | "all";
 };
 
 export type OrderListItem = {
@@ -24,6 +34,17 @@ export type OrderListItem = {
   goodsIssueDate: Date | null;
   customerName: string | null;
   salesRepName: string | null;
+  shipToNumber: string | null;
+  routeCode: string | null;
+  grossWeightKg: string | null;
+  estimatedPalletCount: number | null;
+  deliveryNumber: string | null;
+  deliveryId: string | null;
+  shipmentNumber: string | null;
+  actualPalletCount: number | null;
+  actualPalletWeightKg: string | null;
+  weightVarianceKg: string | null;
+  palletStatus: "awaitingActual" | "captured" | "matches" | "under" | "over";
 };
 
 export type OrderDetail = OrderListItem & {
@@ -34,8 +55,15 @@ export type OrderDetail = OrderListItem & {
   deliveries: Array<{
     id: string;
     deliveryNumber: string;
+    actualPalletCount: number | null;
+    actualPalletWeightKg: string | null;
+    weightVarianceKg: string | null;
+    palletStatus: "awaitingActual" | "captured" | "matches" | "under" | "over";
+    shipmentNumber: string | null;
   }>;
 };
+
+export type OrdersSummary = { orders: number; deliveries: number; assignedToShipment: number; awaitingActualPalletData: number };
 
 export type OrderActivityEvent = {
   actorId: string;

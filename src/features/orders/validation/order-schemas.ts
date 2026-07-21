@@ -14,6 +14,16 @@ export const orderSearchFiltersSchema = z.object({
   pageSize: z.coerce.number().int().min(1).max(100).default(25),
   sortBy: z.enum(orderSortFields).default("orderNumber"),
   sortDirection: z.enum(["asc", "desc"]).default("asc"),
+  datePreset: z.enum(["today", "yesterday", "thisWeek", "all", "custom"]).default("today"),
+  goodsIssueFrom: z.string().date().optional(),
+  goodsIssueTo: z.string().date().optional(),
+  customer: optionalSearchQuery,
+  route: optionalSearchQuery,
+  shipTo: optionalSearchQuery,
+  shipmentState: z.enum(["all", "assigned", "unassigned"]).default("all"),
+  palletState: z.enum(["all", "awaiting", "captured"]).default("all"),
+  status: optionalSearchQuery,
+  recordState: z.enum(["active", "deleted", "all"]).default("active"),
 });
 
 export const orderIdSchema = z.string().uuid();

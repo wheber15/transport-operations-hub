@@ -1,4 +1,4 @@
-import { Filter, Search } from "lucide-react";
+import { Search } from "lucide-react";
 import Link from "next/link";
 import type { Metadata } from "next";
 
@@ -6,7 +6,11 @@ import { EmptyState } from "@/components/shared/operations/empty-state";
 import { OperationsPanel } from "@/components/shared/operations/operations-panel";
 import { Button } from "@/components/ui/button";
 import { OrdersTable } from "@/features/orders/components/orders-table";
-import { getValidatedOrderFilters, listOrders } from "@/features/orders/application/order-service";
+import { getOrdersSummary, getValidatedOrderFilters, listOrders } from "@/features/orders/application/order-service";
+import { requireAuthenticatedUser } from "@/features/auth/application/session";
+import { canManageDeliveryAssignments } from "@/features/auth/domain/roles";
+import { OrdersLiveSearch } from "@/features/orders/components/orders-live-search";
+import { OrdersFilters } from "@/features/orders/components/orders-filters";
 
 export const metadata: Metadata = {
   title: "Orders",
@@ -26,16 +30,34 @@ function getPageHref(page: number, filters: ReturnType<typeof getValidatedOrderF
     pageSize: String(filters.pageSize),
     sortBy: filters.sortBy,
     sortDirection: filters.sortDirection,
+    datePreset: filters.datePreset,
   });
 
   if (filters.query) {
     searchParams.set("query", filters.query);
   }
+  if (filters.datePreset === "custom") {
+    if (filters.goodsIssueFrom) searchParams.set("goodsIssueFrom", filters.goodsIssueFrom);
+    if (filters.goodsIssueTo) searchParams.set("goodsIssueTo", filters.goodsIssueTo);
+  }
 
   return `/orders?${searchParams.toString()}`;
 }
 
+function getPresetHref(preset: "today" | "yesterday" | "thisWeek" | "all", filters: ReturnType<typeof getValidatedOrderFilters>) {
+  const searchParams = new URLSearchParams({
+    page: "1",
+    pageSize: String(filters.pageSize),
+    sortBy: filters.sortBy,
+    sortDirection: filters.sortDirection,
+    datePreset: preset,
+  });
+  if (filters.query) searchParams.set("query", filters.query);
+  return `/orders?${searchParams.toString()}`;
+}
+
 export default async function OrdersPage({ searchParams }: OrdersPageProps) {
+  const user = await requireAuthenticatedUser();
   const rawSearchParams = await searchParams;
   const filters = getValidatedOrderFilters({
     query: getFirstValue(rawSearchParams.query),
@@ -43,8 +65,18 @@ export default async function OrdersPage({ searchParams }: OrdersPageProps) {
     pageSize: getFirstValue(rawSearchParams.pageSize),
     sortBy: getFirstValue(rawSearchParams.sortBy),
     sortDirection: getFirstValue(rawSearchParams.sortDirection),
+    datePreset: getFirstValue(rawSearchParams.datePreset),
+    goodsIssueFrom: getFirstValue(rawSearchParams.goodsIssueFrom),
+    goodsIssueTo: getFirstValue(rawSearchParams.goodsIssueTo),
+    customer: getFirstValue(rawSearchParams.customer),
+    route: getFirstValue(rawSearchParams.route),
+    shipTo: getFirstValue(rawSearchParams.shipTo),
+    shipmentState: getFirstValue(rawSearchParams.shipmentState),
+    palletState: getFirstValue(rawSearchParams.palletState),
+    status: getFirstValue(rawSearchParams.status),
+    recordState: getFirstValue(rawSearchParams.recordState),
   });
-  const { items, total } = await listOrders(filters);
+  const [{ items, total }, summary] = await Promise.all([listOrders(filters, user), getOrdersSummary(filters, user)]);
   const totalPages = Math.max(1, Math.ceil(total / filters.pageSize));
 
   return (
@@ -61,41 +93,26 @@ export default async function OrdersPage({ searchParams }: OrdersPageProps) {
         </div>
       </header>
 
+      <nav aria-label="Goods Issue Date shortcuts" className="flex flex-wrap gap-2">
+        {([['today', 'Today'], ['yesterday', 'Yesterday'], ['thisWeek', 'This Week'], ['all', 'All']] as const).map(([preset, label]) => (
+          <Button key={preset} nativeButton={false} render={<Link href={getPresetHref(preset, filters)} />} size="sm" variant={filters.datePreset === preset ? "default" : "outline"}>{label}</Button>
+        ))}
+      </nav>
+      <dl className="grid grid-cols-2 gap-3 sm:grid-cols-4"><div><dt className="text-muted-foreground text-sm">Orders</dt><dd className="text-lg font-semibold">{summary.orders}</dd></div><div><dt className="text-muted-foreground text-sm">Deliveries</dt><dd className="text-lg font-semibold">{summary.deliveries}</dd></div><div><dt className="text-muted-foreground text-sm">Assigned to Shipment</dt><dd className="text-lg font-semibold">{summary.assignedToShipment}</dd></div><div><dt className="text-muted-foreground text-sm">Awaiting pallet data</dt><dd className="text-lg font-semibold">{summary.awaitingActualPalletData}</dd></div></dl>
+
       <OperationsPanel aria-label="Orders workspace">
         <form className="border-border/80 flex flex-col gap-3 border-b p-4 sm:flex-row sm:items-center">
-          <div className="relative min-w-0 flex-1">
-            <label className="sr-only" htmlFor="order-search">
-              Search orders, picking numbers, or customers
-            </label>
-            <Search
-              aria-hidden="true"
-              className="text-muted-foreground absolute top-1/2 left-3 size-4 -translate-y-1/2"
-            />
-            <input
-              className="border-input bg-background text-foreground placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-ring/50 h-10 w-full rounded-md border pr-3 pl-9 text-sm outline-none focus-visible:ring-[3px]"
-              defaultValue={filters.query}
-              id="order-search"
-              name="query"
-              placeholder="Search orders, picking numbers, or customers"
-              type="search"
-            />
-          </div>
+          <OrdersLiveSearch initialQuery={filters.query} />
           <input name="pageSize" type="hidden" value={filters.pageSize} />
           <input name="sortBy" type="hidden" value={filters.sortBy} />
           <input name="sortDirection" type="hidden" value={filters.sortDirection} />
-          <Button size="sm" type="submit" variant="outline">
-            <Search aria-hidden="true" />
-            Search
-          </Button>
-          <Button disabled size="sm" type="button" variant="outline">
-            <Filter aria-hidden="true" />
-            Filters
-          </Button>
+          <input name="datePreset" type="hidden" value={filters.datePreset} />
+          <OrdersFilters canViewDeletedOrders={user.role === "Administrator"} />
         </form>
 
         {items.length > 0 ? (
-          <>
-            <OrdersTable filters={filters} items={items} />
+          <div className="flex min-h-0 flex-col lg:max-h-[calc(100dvh-22rem)]">
+            <OrdersTable canManagePallets={canManageDeliveryAssignments(user.role)} filters={filters} items={items} />
             <footer className="border-border/80 flex items-center justify-between gap-3 border-t px-4 py-3">
               <p className="text-muted-foreground text-sm">
                 {total} {total === 1 ? "order" : "orders"}
@@ -126,16 +143,16 @@ export default async function OrdersPage({ searchParams }: OrdersPageProps) {
                 </Button>
               </div>
             </footer>
-          </>
+          </div>
         ) : (
           <EmptyState
             description={
               filters.query
                 ? "Try a different order number, picking number, or customer name."
-                : "Orders will appear here when they are available."
+                : filters.datePreset === "today" ? "No Orders have a Goods Issue Date of today." : "Orders will appear here when they are available."
             }
             icon={Search}
-            title={filters.query ? "No matching orders" : "No orders available"}
+            title={filters.query ? "No matching orders" : filters.datePreset === "today" ? "No Orders today" : "No orders available"}
           />
         )}
       </OperationsPanel>

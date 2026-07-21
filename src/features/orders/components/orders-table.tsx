@@ -2,6 +2,8 @@ import { ArrowDown, ArrowUp, ArrowUpDown } from "lucide-react";
 import Link from "next/link";
 
 import { formatBusinessDate } from "@/features/orders/domain/date-formatting";
+import { formatSapWeight } from "@/features/data-management/domain/preview";
+import { ManagePalletsDialog } from "@/features/orders/components/manage-pallets-dialog";
 import type {
   OrderListItem,
   OrderSearchFilters,
@@ -11,6 +13,7 @@ import type {
 type OrdersTableProps = {
   items: OrderListItem[];
   filters: OrderSearchFilters;
+  canManagePallets: boolean;
 };
 
 function getSortHref(filters: OrderSearchFilters, field: OrderSortField) {
@@ -74,15 +77,21 @@ function SortableHeader({
   );
 }
 
-export function OrdersTable({ items, filters }: OrdersTableProps) {
+export function OrdersTable({ canManagePallets, items, filters }: OrdersTableProps) {
   return (
-    <div className="overflow-x-auto">
+    <div className="min-h-0 flex-1 overflow-auto">
       <table className="w-full min-w-[760px] border-collapse">
-        <thead className="border-border/80 bg-muted/30 border-y">
+        <thead className="border-border/80 bg-muted/30 sticky top-0 z-10 border-y">
           <tr>
             <SortableHeader field="orderNumber" filters={filters}>
-              Order Number
+              Sales Order
             </SortableHeader>
+            <th
+              className="text-muted-foreground px-4 py-3 text-left text-xs font-medium tracking-wide uppercase"
+              scope="col"
+            >
+              Delivery
+            </th>
             <SortableHeader field="customer" filters={filters}>
               Customer
             </SortableHeader>
@@ -98,6 +107,41 @@ export function OrdersTable({ items, filters }: OrdersTableProps) {
             <SortableHeader field="goodsIssueDate" filters={filters}>
               Goods Issue Date
             </SortableHeader>
+            <th
+              className="text-muted-foreground px-4 py-3 text-left text-xs font-medium tracking-wide uppercase"
+              scope="col"
+            >
+              Ship-To
+            </th>
+            <th
+              className="text-muted-foreground px-4 py-3 text-left text-xs font-medium tracking-wide uppercase"
+              scope="col"
+            >
+              Route
+            </th>
+            <th
+              className="text-muted-foreground px-4 py-3 text-left text-xs font-medium tracking-wide uppercase"
+              scope="col"
+            >
+              SAP Gross Weight
+            </th>
+            <th
+              className="text-muted-foreground px-4 py-3 text-left text-xs font-medium tracking-wide uppercase"
+              scope="col"
+            >
+              Estimated Pallets
+            </th>
+            <th
+              className="text-muted-foreground px-4 py-3 text-left text-xs font-medium tracking-wide uppercase"
+              scope="col"
+            >
+              Actual Pallets
+            </th>
+            <th className="text-muted-foreground px-4 py-3 text-left text-xs font-medium tracking-wide uppercase" scope="col">Actual Pallet Weight</th>
+            <th className="text-muted-foreground px-4 py-3 text-left text-xs font-medium tracking-wide uppercase" scope="col">Weight variance</th>
+            <th className="text-muted-foreground px-4 py-3 text-left text-xs font-medium tracking-wide uppercase" scope="col">Status</th>
+            <th className="text-muted-foreground px-4 py-3 text-left text-xs font-medium tracking-wide uppercase" scope="col">Shipment</th>
+            <th className="text-muted-foreground px-4 py-3 text-right text-xs font-medium tracking-wide uppercase" scope="col">Actions</th>
           </tr>
         </thead>
         <tbody className="divide-border/80 divide-y">
@@ -107,6 +151,9 @@ export function OrdersTable({ items, filters }: OrdersTableProps) {
                 <Link className="text-primary hover:underline" href={`/orders/${order.id}`}>
                   {order.orderNumber}
                 </Link>
+              </td>
+              <td className="text-muted-foreground px-4 py-3.5 text-sm">
+                {order.deliveryNumber ?? "—"}
               </td>
               <td className="px-4 py-3.5 text-sm">{order.customerName ?? "Not available"}</td>
               <td className="text-muted-foreground px-4 py-3.5 text-sm">
@@ -118,6 +165,26 @@ export function OrdersTable({ items, filters }: OrdersTableProps) {
               <td className="text-muted-foreground px-4 py-3.5 text-sm">
                 {formatBusinessDate(order.goodsIssueDate)}
               </td>
+              <td className="text-muted-foreground px-4 py-3.5 text-sm">
+                {order.shipToNumber ?? "—"}
+              </td>
+              <td className="text-muted-foreground px-4 py-3.5 text-sm">
+                {order.routeCode ?? "—"}
+              </td>
+              <td className="text-muted-foreground px-4 py-3.5 text-sm">
+                {formatSapWeight(order.grossWeightKg) ?? "—"}
+              </td>
+              <td className="text-muted-foreground px-4 py-3.5 text-sm">
+                {order.estimatedPalletCount ?? "Not available"}
+              </td>
+              <td className="text-muted-foreground px-4 py-3.5 text-sm">
+                {order.actualPalletCount === null ? "Not captured" : order.actualPalletCount}
+              </td>
+              <td className="text-muted-foreground px-4 py-3.5 text-sm">{formatSapWeight(order.actualPalletWeightKg) ?? "Not counted"}</td>
+              <td className="text-muted-foreground px-4 py-3.5 text-sm">{order.weightVarianceKg ? formatSapWeight(order.weightVarianceKg) : "Not available"}</td>
+              <td className="text-muted-foreground px-4 py-3.5 text-sm">{order.palletStatus === "awaitingActual" ? "Awaiting actual pallet data" : order.palletStatus === "captured" ? "Actual pallets captured" : order.palletStatus === "matches" ? "Weight matches" : order.palletStatus === "under" ? "Under SAP weight" : "Over SAP weight"}</td>
+              <td className="text-muted-foreground px-4 py-3.5 text-sm">{order.shipmentNumber ?? "Not assigned"}</td>
+              <td className="px-4 py-3.5 text-right">{canManagePallets && order.deliveryId && order.deliveryNumber ? <ManagePalletsDialog deliveryId={order.deliveryId} deliveryNumber={order.deliveryNumber} /> : <Link className="text-primary text-sm hover:underline" href={`/orders/${order.id}`}>View details</Link>}</td>
             </tr>
           ))}
         </tbody>

@@ -2,7 +2,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { ZodError } from "zod";
 
 import { getCurrentUser } from "@/features/auth/application/session";
-import { listOrders } from "@/features/orders/application/order-service";
+import { OrderRecordStateForbiddenError, listOrders } from "@/features/orders/application/order-service";
 
 export async function GET(request: NextRequest) {
   const user = await getCurrentUser();
@@ -16,7 +16,7 @@ export async function GET(request: NextRequest) {
 
   try {
     const filters = Object.fromEntries(request.nextUrl.searchParams);
-    const result = await listOrders(filters);
+    const result = await listOrders(filters, user);
 
     return NextResponse.json({
       data: result.items,
@@ -27,6 +27,9 @@ export async function GET(request: NextRequest) {
       },
     });
   } catch (error) {
+    if (error instanceof OrderRecordStateForbiddenError) {
+      return NextResponse.json({ error: { code: "FORBIDDEN", message: "You do not have permission to view deleted Orders." } }, { status: 403 });
+    }
     if (error instanceof ZodError) {
       return NextResponse.json(
         { error: { code: "INVALID_QUERY", message: "Invalid order query parameters." } },

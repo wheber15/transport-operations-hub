@@ -9,14 +9,13 @@ import type {
   ShipmentListItem,
   ShipmentSearchFilters,
 } from "@/features/shipments/types/shipment";
+import { calculatePalletWeightSummary } from "@/features/orders/domain/pallets";
 
 const shipmentListSelect = {
   id: true,
   shipmentNumber: true,
   dispatchDate: true,
   deliveryDate: true,
-  actualPallets: true,
-  actualWeight: true,
   carrier: {
     select: {
       name: true,
@@ -36,6 +35,10 @@ const shipmentListSelect = {
         },
       },
     },
+  },
+  deliveries: {
+    where: { deletedAt: null, order: { is: { deletedAt: null } } },
+    select: { pallets: { where: { deletedAt: null }, select: { actualWeight: true } } },
   },
 } satisfies Prisma.ShipmentSelect;
 
@@ -73,14 +76,18 @@ type ShipmentDetailRecord = Prisma.ShipmentGetPayload<{ select: typeof shipmentD
 type DeliveryRecord = Prisma.DeliveryGetPayload<{ select: typeof deliverySelect }>;
 
 function toShipmentListItem(shipment: ShipmentListRecord): ShipmentListItem {
+  const palletSummary = calculatePalletWeightSummary(
+    shipment.deliveries.flatMap((delivery) => delivery.pallets.map((pallet) => pallet.actualWeight.toFixed(3))),
+    null
+  );
   return {
     id: shipment.id,
     shipmentNumber: shipment.shipmentNumber,
     carrierName: shipment.carrier.deletedAt === null ? shipment.carrier.name : null,
     dispatchDate: shipment.dispatchDate,
     deliveryDate: shipment.deliveryDate,
-    actualPallets: shipment.actualPallets,
-    actualWeight: shipment.actualWeight?.toString() ?? null,
+    actualPallets: palletSummary.palletCount === 0 ? null : palletSummary.palletCount,
+    actualWeight: palletSummary.actualPalletWeightKg,
     deliveryCount: shipment._count.deliveries,
   };
 }

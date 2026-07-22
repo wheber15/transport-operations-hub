@@ -16,6 +16,13 @@ export type ShipmentSearchFilters = {
   page: number;
   pageSize: number;
   query?: string;
+  datePreset: "today" | "yesterday" | "thisWeek" | "all" | "custom";
+  dispatchFrom?: string;
+  dispatchTo?: string;
+  carrierId?: string;
+  status: "open" | "closed" | "all";
+  deliveryNumber?: string;
+  orderNumber?: string;
   sortBy: ShipmentSortField;
   sortDirection: ShipmentSortDirection;
 };
@@ -25,6 +32,7 @@ export type ShipmentListItem = {
   carrierId: string;
   shipmentNumber: string;
   carrierName: string | null;
+  carrierNumber: string | null;
   dispatchDate: Date | null;
   deliveryDate: Date | null;
   actualPallets: number | null;
@@ -33,6 +41,14 @@ export type ShipmentListItem = {
   orderCount: number;
   estimatedPallets: number;
   status: "OPEN" | "CLOSED";
+};
+
+export type ShipmentsSummary = {
+  shipments: number;
+  plannedPallets: number;
+  actualPallets: number;
+  actualWeight: string | null;
+  openShipments: number;
 };
 
 export type ShipmentDelivery = {

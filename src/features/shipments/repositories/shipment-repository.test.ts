@@ -7,7 +7,12 @@ const prismaMock = vi.hoisted(() => ({
 
 vi.mock("@/server/db/prisma", () => ({ prisma: prismaMock }));
 
-import { closeShipment, createShipment, updateOpenShipment } from "./shipment-repository";
+import {
+  buildShipmentsWhere,
+  closeShipment,
+  createShipment,
+  updateOpenShipment,
+} from "./shipment-repository";
 
 const actorId = "11111111-1111-4111-8111-111111111111";
 const shipmentId = "22222222-2222-4222-8222-222222222222";
@@ -80,5 +85,29 @@ describe("shipment repository lifecycle", () => {
         }),
       })
     );
+  });
+
+  it("combines Carrier, date, Delivery, Order, and status filters", () => {
+    const where = buildShipmentsWhere({
+      page: 1,
+      pageSize: 25,
+      datePreset: "custom",
+      dispatchFrom: "2026-07-20",
+      dispatchTo: "2026-07-22",
+      carrierId,
+      status: "open",
+      deliveryNumber: "19411588",
+      orderNumber: "50001234",
+      sortBy: "shipmentNumber",
+      sortDirection: "asc",
+    });
+    expect(where).toMatchObject({
+      deletedAt: null,
+      dispatchDate: {
+        gte: new Date("2026-07-20T00:00:00.000Z"),
+        lte: new Date("2026-07-22T00:00:00.000Z"),
+      },
+      AND: expect.arrayContaining([{ carrierId }, { status: "OPEN" }]),
+    });
   });
 });

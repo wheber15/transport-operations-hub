@@ -9,13 +9,29 @@ const optionalSearchQuery = z.preprocess(
   z.string().trim().min(1).max(200).optional()
 );
 
-export const shipmentSearchFiltersSchema = z.object({
-  query: optionalSearchQuery,
-  page: z.coerce.number().int().min(1).default(1),
-  pageSize: z.coerce.number().int().min(1).max(100).default(25),
-  sortBy: z.enum(shipmentSortFields).default("shipmentNumber"),
-  sortDirection: z.enum(["asc", "desc"]).default("asc"),
-});
+export const shipmentSearchFiltersSchema = z
+  .object({
+    query: optionalSearchQuery,
+    page: z.coerce.number().int().min(1).default(1),
+    pageSize: z.coerce.number().int().min(1).max(100).default(25),
+    datePreset: z.enum(["today", "yesterday", "thisWeek", "all", "custom"]).default("all"),
+    dispatchFrom: z.string().date().optional(),
+    dispatchTo: z.string().date().optional(),
+    carrierId: z.string().uuid().optional(),
+    status: z.enum(["open", "closed", "all"]).default("all"),
+    deliveryNumber: optionalSearchQuery,
+    orderNumber: optionalSearchQuery,
+    sortBy: z.enum(shipmentSortFields).default("shipmentNumber"),
+    sortDirection: z.enum(["asc", "desc"]).default("asc"),
+  })
+  .refine(
+    (filters) =>
+      !filters.dispatchFrom || !filters.dispatchTo || filters.dispatchFrom <= filters.dispatchTo,
+    {
+      message: "Dispatch date end must not be earlier than the start date.",
+      path: ["dispatchTo"],
+    }
+  );
 
 export const shipmentIdSchema = z.string().uuid();
 const optionalText = z.preprocess(

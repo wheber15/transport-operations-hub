@@ -8,6 +8,7 @@ import type {
   ShipmentDetail,
   ShipmentListItem,
   ShipmentSearchFilters,
+  ShipmentsSummary,
 } from "@/features/shipments/types/shipment";
 import {
   calculatePalletWeightSummary,
@@ -24,6 +25,7 @@ const shipmentListSelect = {
   carrier: {
     select: {
       name: true,
+      carrierNumber: true,
       deletedAt: true,
     },
   },
@@ -97,6 +99,7 @@ function toShipmentListItem(shipment: ShipmentListRecord): ShipmentListItem {
     carrierId: shipment.carrierId,
     shipmentNumber: shipment.shipmentNumber,
     carrierName: shipment.carrier.deletedAt === null ? shipment.carrier.name : null,
+    carrierNumber: shipment.carrier.deletedAt === null ? shipment.carrier.carrierNumber : null,
     dispatchDate: shipment.dispatchDate,
     deliveryDate: shipment.deliveryDate,
     actualPallets: palletSummary.palletCount === 0 ? null : palletSummary.palletCount,
@@ -170,22 +173,84 @@ function getOrderBy(
   return [orderBy[sortBy], { id: "asc" }] satisfies Prisma.ShipmentOrderByWithRelationInput[];
 }
 
-function getSearchWhere(query: string | undefined): Prisma.ShipmentWhereInput {
-  if (!query) {
-    return { deletedAt: null };
-  }
-
+export function buildShipmentsWhere(filters: ShipmentSearchFilters): Prisma.ShipmentWhereInput {
+  const query = filters.query?.trim();
   return {
     deletedAt: null,
-    OR: [
-      { shipmentNumber: { contains: query, mode: "insensitive" } },
-      { carrier: { name: { contains: query, mode: "insensitive" } } },
-    ],
+    ...(query
+      ? {
+          OR: [
+            { shipmentNumber: { contains: query, mode: "insensitive" } },
+            { carrier: { name: { contains: query, mode: "insensitive" } } },
+            { carrier: { carrierNumber: { contains: query, mode: "insensitive" } } },
+            {
+              deliveries: {
+                some: { deletedAt: null, deliveryNumber: { contains: query, mode: "insensitive" } },
+              },
+            },
+            {
+              deliveries: {
+                some: {
+                  deletedAt: null,
+                  order: {
+                    is: { deletedAt: null, orderNumber: { contains: query, mode: "insensitive" } },
+                  },
+                },
+              },
+            },
+          ],
+        }
+      : {}),
+    AND: [
+      ...(filters.carrierId ? [{ carrierId: filters.carrierId }] : []),
+      ...(filters.status === "all"
+        ? []
+        : [{ status: filters.status.toUpperCase() as "OPEN" | "CLOSED" }]),
+      ...(filters.deliveryNumber
+        ? [
+            {
+              deliveries: {
+                some: {
+                  deletedAt: null,
+                  deliveryNumber: { contains: filters.deliveryNumber, mode: "insensitive" },
+                },
+              },
+            },
+          ]
+        : []),
+      ...(filters.orderNumber
+        ? [
+            {
+              deliveries: {
+                some: {
+                  deletedAt: null,
+                  order: {
+                    is: {
+                      deletedAt: null,
+                      orderNumber: { contains: filters.orderNumber, mode: "insensitive" },
+                    },
+                  },
+                },
+              },
+            },
+          ]
+        : []),
+    ] as Prisma.ShipmentWhereInput[],
+    ...(filters.dispatchFrom || filters.dispatchTo
+      ? {
+          dispatchDate: {
+            ...(filters.dispatchFrom
+              ? { gte: new Date(`${filters.dispatchFrom}T00:00:00.000Z`) }
+              : {}),
+            ...(filters.dispatchTo ? { lte: new Date(`${filters.dispatchTo}T00:00:00.000Z`) } : {}),
+          },
+        }
+      : {}),
   };
 }
 
 export async function list(filters: ShipmentSearchFilters) {
-  const where = getSearchWhere(filters.query);
+  const where = buildShipmentsWhere(filters);
   const skip = (filters.page - 1) * filters.pageSize;
 
   const [items, total] = await prisma.$transaction([
@@ -200,6 +265,30 @@ export async function list(filters: ShipmentSearchFilters) {
   ]);
 
   return { items: items.map(toShipmentListItem), total };
+}
+
+export async function getSummary(filters: ShipmentSearchFilters): Promise<ShipmentsSummary> {
+  const where = buildShipmentsWhere(filters);
+  const [shipments, total, openShipments] = await Promise.all([
+    prisma.shipment.findMany({ where, select: shipmentListSelect }),
+    prisma.shipment.count({ where }),
+    prisma.shipment.count({ where: { AND: [where, { status: "OPEN" }] } }),
+  ]);
+  const items = shipments.map(toShipmentListItem);
+  const actualWeight = items.reduce(
+    (totalWeight, item) => totalWeight + Number(item.actualWeight ?? 0),
+    0
+  );
+  return {
+    shipments: total,
+    plannedPallets: items.reduce((totalPallets, item) => totalPallets + item.estimatedPallets, 0),
+    actualPallets: items.reduce(
+      (totalPallets, item) => totalPallets + (item.actualPallets ?? 0),
+      0
+    ),
+    actualWeight: actualWeight === 0 ? null : actualWeight.toFixed(3),
+    openShipments,
+  };
 }
 
 export async function getById(id: string): Promise<ShipmentDetail | null> {
@@ -219,6 +308,8 @@ export async function search(query: string, page = 1, pageSize = 25) {
     query,
     page,
     pageSize,
+    datePreset: "all",
+    status: "all",
     sortBy: "shipmentNumber",
     sortDirection: "asc",
   });
@@ -236,6 +327,14 @@ export async function listActiveCarriers() {
       dailyTrailerLimit: true,
     },
     orderBy: [{ name: "asc" }, { id: "asc" }],
+  });
+}
+
+export async function listCarriersForShipmentFilters() {
+  return prisma.carrier.findMany({
+    where: { deletedAt: null },
+    select: { id: true, name: true, carrierNumber: true, active: true },
+    orderBy: [{ active: "desc" }, { name: "asc" }, { id: "asc" }],
   });
 }
 

@@ -4,9 +4,11 @@ import {
   assignDeliveryAtomically,
   getById as getShipmentByIdFromRepository,
   list as listShipmentsFromRepository,
+  getSummary as getShipmentsSummaryFromRepository,
   listAvailableDeliveries as listAvailableDeliveriesFromRepository,
   listDeliveries as listDeliveriesFromRepository,
   listActiveCarriers as listActiveCarriersFromRepository,
+  listCarriersForShipmentFilters as listCarriersForShipmentFiltersFromRepository,
   isActiveCarrier,
   search as searchShipmentsFromRepository,
   unassignDeliveryAtomically,
@@ -28,6 +30,7 @@ import {
   shipmentUpdateSchema,
 } from "@/features/shipments/validation/shipment-schemas";
 import { canManageDeliveryAssignments } from "@/features/auth/domain/roles";
+import { resolveDispatchDateScope } from "@/features/shipments/domain/dispatch-date";
 
 export class ShipmentNotFoundError extends Error {
   constructor() {
@@ -120,9 +123,30 @@ export type ShipmentServiceDependencies = {
 
 export async function listShipments(input: unknown) {
   const filters = shipmentSearchFiltersSchema.parse(input);
-  const result = await listShipmentsFromRepository(filters);
+  const scope = resolveDispatchDateScope(filters.datePreset, new Date(), {
+    from: filters.dispatchFrom,
+    to: filters.dispatchTo,
+  });
+  const result = await listShipmentsFromRepository({
+    ...filters,
+    dispatchFrom: scope.from,
+    dispatchTo: scope.to,
+  });
 
   return { ...result, filters };
+}
+
+export async function getShipmentsSummary(input: unknown) {
+  const filters = shipmentSearchFiltersSchema.parse(input);
+  const scope = resolveDispatchDateScope(filters.datePreset, new Date(), {
+    from: filters.dispatchFrom,
+    to: filters.dispatchTo,
+  });
+  return getShipmentsSummaryFromRepository({
+    ...filters,
+    dispatchFrom: scope.from,
+    dispatchTo: scope.to,
+  });
 }
 
 export async function searchShipments(query: unknown) {
@@ -156,7 +180,12 @@ export function getShipmentActivityRecorder(dependencies: ShipmentServiceDepende
 }
 
 export function getValidatedShipmentFilters(input: unknown): ShipmentSearchFilters {
-  return shipmentSearchFiltersSchema.parse(input);
+  const filters = shipmentSearchFiltersSchema.parse(input);
+  const scope = resolveDispatchDateScope(filters.datePreset, new Date(), {
+    from: filters.dispatchFrom,
+    to: filters.dispatchTo,
+  });
+  return { ...filters, dispatchFrom: scope.from, dispatchTo: scope.to };
 }
 
 export async function listActiveCarriers() {
@@ -169,4 +198,8 @@ export async function listActiveCarriers() {
     });
     return [];
   }
+}
+
+export async function listCarriersForShipmentFilters() {
+  return listCarriersForShipmentFiltersFromRepository();
 }

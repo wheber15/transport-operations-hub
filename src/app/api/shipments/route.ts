@@ -17,7 +17,13 @@ export async function GET(request: NextRequest) {
       { status: 401 }
     );
   try {
-    const filters = Object.fromEntries(request.nextUrl.searchParams);
+    const filters = {
+      ...Object.fromEntries(request.nextUrl.searchParams),
+      query:
+        request.nextUrl.searchParams.get("q") ??
+        request.nextUrl.searchParams.get("query") ??
+        undefined,
+    };
     const result = await listShipments(filters);
     return NextResponse.json({
       data: result.items,

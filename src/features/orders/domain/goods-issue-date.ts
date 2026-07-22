@@ -1,7 +1,8 @@
+import { irelandBusinessDate } from "@/lib/business-date";
 export type GoodsIssueDatePreset = "today" | "yesterday" | "thisWeek" | "all" | "custom";
 
 function isoDate(value: Date) {
-  return new Intl.DateTimeFormat("en-CA", { timeZone: "Europe/London" }).format(value);
+  return irelandBusinessDate(value);
 }
 
 function addDays(value: string, days: number) {

@@ -3,6 +3,10 @@ import "server-only";
 import { z } from "zod";
 
 import { shipmentSortFields } from "@/features/shipments/types/shipment";
+import {
+  irelandLocalDateTimeToUtc,
+  validateMovementTimes,
+} from "@/features/shipments/domain/movement";
 
 const optionalSearchQuery = z.preprocess(
   (value) => (typeof value === "string" && value.trim() === "" ? undefined : value),
@@ -69,6 +73,34 @@ export const shipmentUpdateSchema = shipmentFields
   });
 
 export const shipmentCloseSchema = z.object({ confirmEmpty: z.literal(true).optional() }).strict();
+
+const movementDateTime = z
+  .string()
+  .trim()
+  .refine((value) => irelandLocalDateTimeToUtc(value) !== null, {
+    message: "Enter a valid Ireland local date and time.",
+  })
+  .nullable();
+
+export const shipmentMovementSchema = z
+  .object({
+    driverInAt: movementDateTime,
+    trailerLoadedAt: movementDateTime,
+    driverOutAt: movementDateTime,
+  })
+  .strict()
+  .superRefine((value, context) => {
+    const errors = validateMovementTimes({
+      driverInAt: value.driverInAt ? irelandLocalDateTimeToUtc(value.driverInAt) : null,
+      trailerLoadedAt: value.trailerLoadedAt
+        ? irelandLocalDateTimeToUtc(value.trailerLoadedAt)
+        : null,
+      driverOutAt: value.driverOutAt ? irelandLocalDateTimeToUtc(value.driverOutAt) : null,
+    });
+    for (const [field, message] of Object.entries(errors)) {
+      context.addIssue({ code: "custom", message, path: [field] });
+    }
+  });
 
 export const deliveryAssignmentSchema = z
   .object({

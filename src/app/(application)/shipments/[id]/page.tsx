@@ -1,4 +1,4 @@
-import { Activity, ChevronLeft, ClipboardList, Truck, UserRound } from "lucide-react";
+import { ChevronLeft, ClipboardList, Truck, UserRound } from "lucide-react";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 
@@ -12,6 +12,8 @@ import { DeliveryImportWorkflow } from "@/features/shipments/components/delivery
 import { CloseShipmentButton } from "@/features/shipments/components/close-shipment-button";
 import { EditShipmentDialog } from "@/features/shipments/components/edit-shipment-dialog";
 import { DeleteShipmentButton } from "@/features/shipments/components/delete-shipment-button";
+import { ShipmentActivityPanel } from "@/features/shipments/components/shipment-activity-panel";
+import { ShipmentMovementCard } from "@/features/shipments/components/shipment-movement-card";
 import {
   formatDateOnly,
   formatOperationalNumber,
@@ -125,9 +127,16 @@ export default async function ShipmentDetailPage({ params }: ShipmentDetailPageP
               }}
             />
             {shipment.status === "OPEN" ? (
-              <CloseShipmentButton deliveryCount={shipment.deliveryCount} shipmentId={shipment.id} />
+              <CloseShipmentButton
+                deliveryCount={shipment.deliveryCount}
+                shipmentId={shipment.id}
+              />
             ) : null}
-            <DeleteShipmentButton deliveryCount={shipment.deliveryCount} shipmentId={shipment.id} shipmentNumber={shipment.shipmentNumber} />
+            <DeleteShipmentButton
+              deliveryCount={shipment.deliveryCount}
+              shipmentId={shipment.id}
+              shipmentNumber={shipment.shipmentNumber}
+            />
           </div>
         ) : null}
       </header>
@@ -286,20 +295,16 @@ export default async function ShipmentDetailPage({ params }: ShipmentDetailPageP
               </div>
             </dl>
           </OperationsPanel>
-
-          <OperationsPanel aria-label="Shipment activity">
-            <div className="border-border/80 border-b px-5 py-4">
-              <h2 className="text-foreground flex items-center gap-2 text-base font-semibold">
-                <Activity aria-hidden="true" className="text-muted-foreground size-4" />
-                Activity
-              </h2>
-            </div>
-            <EmptyState
-              description="Operational activity will appear here when it is recorded."
-              icon={Activity}
-              title="No activity recorded"
-            />
-          </OperationsPanel>
+          <ShipmentMovementCard
+            canManage={canManageAssignments}
+            shipmentId={shipment.id}
+            values={{
+              driverInAt: shipment.driverInAt?.toISOString() ?? null,
+              trailerLoadedAt: shipment.trailerLoadedAt?.toISOString() ?? null,
+              driverOutAt: shipment.driverOutAt?.toISOString() ?? null,
+            }}
+          />
+          <ShipmentActivityPanel activities={shipment.activities} />
         </div>
       </div>
     </div>

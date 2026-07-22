@@ -159,6 +159,16 @@ Each shipment stores the following operational information:
 - Actual Weight
 - Notes
 
+### Trailer Movement Tracking
+
+Shipment movement timestamps are recorded and displayed in Ireland local time while stored as full operational timestamps.
+
+- **Driver In** records that the driver or trailer has arrived on site.
+- **Trailer Loaded** records that loading is complete and automatically closes an open Shipment.
+- **Driver Out** records departure and does not change the closed status.
+
+The required operational sequence is `Driver In ≤ Trailer Loaded ≤ Driver Out`. Equal timestamps are accepted when needed for operations. A later timestamp may be cleared only when every dependent later timestamp is also cleared. Correcting an earlier timestamp is allowed only when the resulting complete sequence remains valid. Clearing movement timestamps never silently reopens a Shipment.
+
 ### SAP Delivery Paste Import
 
 A planner may paste SAP Delivery Numbers into an existing active shipment to bulk-assign eligible deliveries. Numbers may be separated by lines, tabs, spaces, commas, or semicolons. AXon preserves the normalized identifier string, removes empty values, records duplicate input, and accepts no more than 200 unique Delivery Numbers in one request.

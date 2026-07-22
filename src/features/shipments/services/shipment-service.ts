@@ -16,6 +16,7 @@ import {
   closeShipment as closeShipmentFromRepository,
   deleteShipment as deleteShipmentFromRepository,
   updateOpenShipment as updateOpenShipmentFromRepository,
+  updateMovementTimesAtomically,
 } from "@/features/shipments/repositories/shipment-repository";
 import type {
   ShipmentActivityRecorder,
@@ -29,7 +30,9 @@ import {
   shipmentCreateSchema,
   shipmentCloseSchema,
   shipmentUpdateSchema,
+  shipmentMovementSchema,
 } from "@/features/shipments/validation/shipment-schemas";
+import { irelandLocalDateTimeToUtc } from "@/features/shipments/domain/movement";
 import { canManageDeliveryAssignments } from "@/features/auth/domain/roles";
 import { resolveDispatchDateScope } from "@/features/shipments/domain/dispatch-date";
 import { suggestDeliveryDate } from "@/features/shipments/domain/delivery-date";
@@ -48,6 +51,7 @@ export class ShipmentDuplicateError extends Error {}
 export class ShipmentEmptyError extends Error {}
 export class ShipmentCarrierUnavailableError extends Error {}
 export class ShipmentDeleteNotFoundError extends Error {}
+export class ShipmentMovementNotFoundError extends Error {}
 
 type DeliveryAssignmentActor = { id: string; role: string | null };
 
@@ -122,6 +126,27 @@ export async function deleteShipment(actor: DeliveryAssignmentActor, id: unknown
   const result = await deleteShipmentFromRepository(actor.id, shipmentIdSchema.parse(id));
   if (result === "not-found") throw new ShipmentDeleteNotFoundError();
   return result;
+}
+
+export async function updateShipmentMovement(
+  actor: DeliveryAssignmentActor,
+  id: unknown,
+  input: unknown
+) {
+  requireDeliveryAssignmentRole(actor);
+  const payload = shipmentMovementSchema.parse(input);
+  const result = await updateMovementTimesAtomically({
+    actorId: actor.id,
+    shipmentId: shipmentIdSchema.parse(id),
+    times: {
+      driverInAt: payload.driverInAt ? irelandLocalDateTimeToUtc(payload.driverInAt) : null,
+      trailerLoadedAt: payload.trailerLoadedAt
+        ? irelandLocalDateTimeToUtc(payload.trailerLoadedAt)
+        : null,
+      driverOutAt: payload.driverOutAt ? irelandLocalDateTimeToUtc(payload.driverOutAt) : null,
+    },
+  });
+  if (result === "not-found") throw new ShipmentMovementNotFoundError();
 }
 
 export async function unassignDeliveryFromShipment(actor: DeliveryAssignmentActor, input: unknown) {

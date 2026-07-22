@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   shipmentCloseSchema,
   shipmentCreateSchema,
+  shipmentMovementSchema,
   shipmentUpdateSchema,
 } from "./shipment-schemas";
 
@@ -30,5 +31,22 @@ describe("shipment validation", () => {
     expect(shipmentUpdateSchema.parse({ notes: "Updated note" })).toEqual({
       notes: "Updated note",
     });
+  });
+
+  it("requires an ordered Driver In, Trailer Loaded, and Driver Out sequence", () => {
+    expect(
+      shipmentMovementSchema.parse({
+        driverInAt: "2026-07-22T09:00",
+        trailerLoadedAt: "2026-07-22T10:00",
+        driverOutAt: "2026-07-22T11:00",
+      })
+    ).toBeDefined();
+    expect(() =>
+      shipmentMovementSchema.parse({
+        driverInAt: null,
+        trailerLoadedAt: "2026-07-22T10:00",
+        driverOutAt: null,
+      })
+    ).toThrow();
   });
 });

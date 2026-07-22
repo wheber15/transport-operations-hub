@@ -93,7 +93,7 @@ export function ShipmentsTable({ items, filters }: Props) {
               Actual weight
             </Header>
             <th className="text-muted-foreground px-3 py-3 text-left text-xs font-medium tracking-wide uppercase">
-              Status
+              Movement
             </th>
             <th className="text-muted-foreground px-3 py-3 text-right text-xs font-medium tracking-wide uppercase">
               Actions
@@ -141,7 +141,13 @@ export function ShipmentsTable({ items, filters }: Props) {
                       : "bg-muted text-muted-foreground rounded-full px-2 py-1 text-xs font-medium"
                   }
                 >
-                  {shipment.status === "OPEN" ? "Open" : "Closed"}
+                  {shipment.movementState === "awaiting-driver"
+                    ? "Awaiting driver"
+                    : shipment.movementState === "on-site"
+                      ? "On site"
+                      : shipment.movementState === "loaded"
+                        ? "Loaded"
+                        : "Departed"}
                 </span>
               </td>
               <td className="px-3 py-3.5 text-right">

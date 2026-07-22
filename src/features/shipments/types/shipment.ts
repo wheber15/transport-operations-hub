@@ -41,6 +41,7 @@ export type ShipmentListItem = {
   orderCount: number;
   estimatedPallets: number;
   status: "OPEN" | "CLOSED";
+  movementState: "awaiting-driver" | "on-site" | "loaded" | "departed";
 };
 
 export type ShipmentsSummary = {
@@ -74,6 +75,18 @@ export type ShipmentDetail = ShipmentListItem & {
   orderCount: number;
   estimatedPallets: number;
   sapGrossWeight: string | null;
+  driverInAt: Date | null;
+  trailerLoadedAt: Date | null;
+  driverOutAt: Date | null;
+  activities: ShipmentActivity[];
+};
+
+export type ShipmentActivity = {
+  action: string;
+  actorName: string | null;
+  description: string;
+  metadata: unknown;
+  occurredAt: Date;
 };
 
 export type ShipmentActivityEvent = {

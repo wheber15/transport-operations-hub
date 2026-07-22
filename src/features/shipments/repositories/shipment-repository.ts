@@ -14,6 +14,7 @@ import {
   calculatePalletWeightSummary,
   estimatePalletCount,
 } from "@/features/orders/domain/pallets";
+import { getShipmentMovementState, type MovementTimes } from "@/features/shipments/domain/movement";
 
 const shipmentListSelect = {
   id: true,
@@ -22,6 +23,9 @@ const shipmentListSelect = {
   dispatchDate: true,
   deliveryDate: true,
   status: true,
+  driverInAt: true,
+  trailerLoadedAt: true,
+  driverOutAt: true,
   carrier: {
     select: {
       name: true,
@@ -106,6 +110,7 @@ function toShipmentListItem(shipment: ShipmentListRecord): ShipmentListItem {
     actualWeight: palletSummary.actualPalletWeightKg,
     deliveryCount: shipment._count.deliveries,
     status: shipment.status,
+    movementState: getShipmentMovementState(shipment),
     orderCount: new Set(shipment.deliveries.map((delivery) => delivery.order.id)).size,
     estimatedPallets: shipment.deliveries.reduce(
       (total, delivery) =>
@@ -144,6 +149,10 @@ function toShipmentDetail(shipment: ShipmentDetailRecord): ShipmentDetail {
       0
     ),
     sapGrossWeight: orderWeights.length > 0 ? sapGrossWeight : null,
+    driverInAt: shipment.driverInAt,
+    trailerLoadedAt: shipment.trailerLoadedAt,
+    driverOutAt: shipment.driverOutAt,
+    activities: [],
   };
 }
 
@@ -292,15 +301,38 @@ export async function getSummary(filters: ShipmentSearchFilters): Promise<Shipme
 }
 
 export async function getById(id: string): Promise<ShipmentDetail | null> {
-  const shipment = await prisma.shipment.findFirst({
-    where: {
-      id,
-      deletedAt: null,
-    },
-    select: shipmentDetailSelect,
-  });
+  const [shipment, activities] = await Promise.all([
+    prisma.shipment.findFirst({
+      where: {
+        id,
+        deletedAt: null,
+      },
+      select: shipmentDetailSelect,
+    }),
+    prisma.activity.findMany({
+      where: { entityType: "Shipment", entityId: id, deletedAt: null },
+      select: {
+        action: true,
+        description: true,
+        metadata: true,
+        occurredAt: true,
+        actor: { select: { displayName: true, deletedAt: true } },
+      },
+      orderBy: [{ occurredAt: "desc" }, { id: "desc" }],
+    }),
+  ]);
 
-  return shipment ? toShipmentDetail(shipment) : null;
+  if (!shipment) return null;
+  return {
+    ...toShipmentDetail(shipment),
+    activities: activities.map((activity) => ({
+      action: activity.action,
+      description: activity.description,
+      metadata: activity.metadata,
+      occurredAt: activity.occurredAt,
+      actorName: activity.actor.deletedAt === null ? activity.actor.displayName : null,
+    })),
+  };
 }
 
 export async function search(query: string, page = 1, pageSize = 25) {
@@ -580,6 +612,108 @@ export async function closeShipment(actorId: string, shipmentId: string, confirm
     });
     return "closed" as const;
   });
+}
+
+export async function updateMovementTimesAtomically(input: {
+  actorId: string;
+  shipmentId: string;
+  times: MovementTimes;
+}) {
+  return prisma.$transaction(async (tx) => {
+    const shipment = await tx.shipment.findFirst({
+      where: { id: input.shipmentId, deletedAt: null },
+      select: {
+        shipmentNumber: true,
+        status: true,
+        driverInAt: true,
+        trailerLoadedAt: true,
+        driverOutAt: true,
+      },
+    });
+    if (!shipment) return "not-found" as const;
+
+    const previous: MovementTimes = {
+      driverInAt: shipment.driverInAt,
+      trailerLoadedAt: shipment.trailerLoadedAt,
+      driverOutAt: shipment.driverOutAt,
+    };
+    const trailerJustLoaded =
+      previous.trailerLoadedAt === null && input.times.trailerLoadedAt !== null;
+    const action = determineMovementAction(previous, input.times);
+    const now = new Date();
+    await tx.shipment.update({
+      where: { id: input.shipmentId },
+      data: {
+        ...input.times,
+        ...(trailerJustLoaded && shipment.status === "OPEN"
+          ? { status: "CLOSED", closedAt: now, closedById: input.actorId }
+          : {}),
+        updatedById: input.actorId,
+      },
+    });
+    await tx.activity.create({
+      data: {
+        entityType: "Shipment",
+        entityId: input.shipmentId,
+        action,
+        description: movementActivityDescription(action, shipment.shipmentNumber),
+        metadata: {
+          previous: serialiseMovementTimes(previous),
+          current: serialiseMovementTimes(input.times),
+          statusClosedAutomatically: trailerJustLoaded && shipment.status === "OPEN",
+        },
+        actorId: input.actorId,
+        createdById: input.actorId,
+        updatedById: input.actorId,
+      },
+    });
+    return "updated" as const;
+  });
+}
+
+function serialiseMovementTimes(times: MovementTimes) {
+  return Object.fromEntries(
+    Object.entries(times).map(([key, value]) => [key, value?.toISOString() ?? null])
+  );
+}
+
+function sameTime(left: Date | null, right: Date | null) {
+  return left?.getTime() === right?.getTime();
+}
+
+function determineMovementAction(previous: MovementTimes, current: MovementTimes) {
+  if (
+    !previous.driverInAt &&
+    current.driverInAt &&
+    sameTime(previous.trailerLoadedAt, current.trailerLoadedAt) &&
+    sameTime(previous.driverOutAt, current.driverOutAt)
+  )
+    return "driver_in_recorded";
+  if (
+    !previous.trailerLoadedAt &&
+    current.trailerLoadedAt &&
+    sameTime(previous.driverInAt, current.driverInAt) &&
+    sameTime(previous.driverOutAt, current.driverOutAt)
+  )
+    return "trailer_loaded";
+  if (
+    !previous.driverOutAt &&
+    current.driverOutAt &&
+    sameTime(previous.driverInAt, current.driverInAt) &&
+    sameTime(previous.trailerLoadedAt, current.trailerLoadedAt)
+  )
+    return "driver_out_recorded";
+  return "movement_times_corrected";
+}
+
+function movementActivityDescription(action: string, shipmentNumber: string) {
+  const descriptions: Record<string, string> = {
+    driver_in_recorded: `Driver In recorded for shipment ${shipmentNumber}.`,
+    trailer_loaded: `Trailer Loaded recorded for shipment ${shipmentNumber}; shipment closed.`,
+    driver_out_recorded: `Driver Out recorded for shipment ${shipmentNumber}.`,
+    movement_times_corrected: `Movement times corrected for shipment ${shipmentNumber}.`,
+  };
+  return descriptions[action] ?? `Movement updated for shipment ${shipmentNumber}.`;
 }
 
 export async function deleteShipment(actorId: string, shipmentId: string) {

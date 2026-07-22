@@ -1,0 +1,4 @@
+ALTER TABLE "shipment"
+  ADD COLUMN "driverInAt" TIMESTAMPTZ(3),
+  ADD COLUMN "trailerLoadedAt" TIMESTAMPTZ(3),
+  ADD COLUMN "driverOutAt" TIMESTAMPTZ(3);

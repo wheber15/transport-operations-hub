@@ -12,6 +12,7 @@ import {
   closeShipment,
   createShipment,
   unassignDeliveryAtomically,
+  updateMovementTimesAtomically,
   updateOpenShipment,
 } from "./shipment-repository";
 
@@ -110,6 +111,46 @@ describe("shipment repository lifecycle", () => {
           closedAt: expect.any(Date),
         }),
       })
+    );
+  });
+
+  it("records Trailer Loaded atomically, closes the Shipment, and audits the transition", async () => {
+    const transaction = {
+      shipment: {
+        findFirst: vi.fn().mockResolvedValue({
+          shipmentNumber: "AXON-001",
+          status: "OPEN",
+          driverInAt: new Date("2026-07-22T08:00:00.000Z"),
+          trailerLoadedAt: null,
+          driverOutAt: null,
+        }),
+        update: vi.fn(),
+      },
+      activity: { create: vi.fn() },
+    };
+    prismaMock.$transaction.mockImplementation(
+      async (callback: (tx: typeof transaction) => unknown) => callback(transaction)
+    );
+
+    await expect(
+      updateMovementTimesAtomically({
+        actorId,
+        shipmentId,
+        times: {
+          driverInAt: new Date("2026-07-22T08:00:00.000Z"),
+          trailerLoadedAt: new Date("2026-07-22T09:00:00.000Z"),
+          driverOutAt: null,
+        },
+      })
+    ).resolves.toBe("updated");
+
+    expect(transaction.shipment.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ status: "CLOSED", closedById: actorId }),
+      })
+    );
+    expect(transaction.activity.create).toHaveBeenCalledWith(
+      expect.objectContaining({ data: expect.objectContaining({ action: "trailer_loaded" }) })
     );
   });
 

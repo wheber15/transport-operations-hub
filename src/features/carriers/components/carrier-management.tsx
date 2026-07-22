@@ -54,7 +54,8 @@ const fields: Array<[keyof Form, string]> = [
 ];
 function asForm(carrier: Carrier): Form {
   return {
-    ...carrier,
+    carrierNumber: carrier.carrierNumber,
+    name: carrier.name,
     contactName: carrier.contactName ?? "",
     email: carrier.email ?? "",
     phone: carrier.phone ?? "",
@@ -71,10 +72,12 @@ export function CarrierManagement({ items, canManage }: { items: Carrier[]; canM
   const [editing, setEditing] = useState<Carrier | null>(null);
   const [form, setForm] = useState<Form>(blank);
   const [error, setError] = useState<string | null>(null);
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string[]>>({});
   function begin(carrier?: Carrier) {
     setEditing(carrier ?? null);
     setForm(carrier ? asForm(carrier) : blank);
     setError(null);
+    setFieldErrors({});
     setOpen(true);
   }
   async function submit() {
@@ -84,10 +87,11 @@ export function CarrierManagement({ items, canManage }: { items: Carrier[]; canM
       body: JSON.stringify(form),
     });
     const payload = (await response.json().catch(() => null)) as {
-      error?: { message?: string };
+      error?: { message?: string; fieldErrors?: Record<string, string[]> };
     } | null;
     if (!response.ok) {
       setError(payload?.error?.message ?? "Carrier could not be saved.");
+      setFieldErrors(payload?.error?.fieldErrors ?? {});
       return;
     }
     setOpen(false);
@@ -124,6 +128,8 @@ export function CarrierManagement({ items, canManage }: { items: Carrier[]; canM
                 <label className="grid gap-1 text-sm" key={key}>
                   {label}
                   <input
+                    aria-invalid={Boolean(fieldErrors[key])}
+                    aria-describedby={fieldErrors[key] ? `${key}-error` : undefined}
                     className="border-input h-9 rounded border px-2"
                     type={
                       key === "collectionStartTime" || key === "collectionEndTime"
@@ -135,6 +141,11 @@ export function CarrierManagement({ items, canManage }: { items: Carrier[]; canM
                     value={String(form[key])}
                     onChange={(event) => setForm({ ...form, [key]: event.target.value })}
                   />
+                  {fieldErrors[key] ? (
+                    <span className="text-destructive text-xs" id={`${key}-error`}>
+                      {fieldErrors[key][0]}
+                    </span>
+                  ) : null}
                 </label>
               ))}
               <label className="grid gap-1 text-sm">

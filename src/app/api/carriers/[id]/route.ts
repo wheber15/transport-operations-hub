@@ -34,7 +34,18 @@ export async function PATCH(request: Request, { params }: RouteContext<"/api/car
         { error: { code: "CARRIER_NOT_FOUND", message: "Carrier was not found." } },
         { status: 404 }
       );
-    if (error instanceof ZodError || error instanceof SyntaxError)
+    if (error instanceof ZodError)
+      return NextResponse.json(
+        {
+          error: {
+            code: "INVALID_PAYLOAD",
+            message: "Review the Carrier fields.",
+            fieldErrors: error.flatten().fieldErrors,
+          },
+        },
+        { status: 400 }
+      );
+    if (error instanceof SyntaxError)
       return NextResponse.json(
         { error: { code: "INVALID_PAYLOAD", message: "Review the Carrier fields." } },
         { status: 400 }

@@ -15,6 +15,7 @@ import { requireAuthenticatedUser } from "@/features/auth/application/session";
 import { canManageDeliveryAssignments } from "@/features/auth/domain/roles";
 import { OrdersLiveSearch } from "@/features/orders/components/orders-live-search";
 import { OrdersFilters } from "@/features/orders/components/orders-filters";
+import { PrintLeftForTodayButton } from "@/features/orders/components/print-left-for-today-button";
 
 export const metadata: Metadata = {
   title: "Orders",
@@ -123,6 +124,7 @@ export default async function OrdersPage({ searchParams }: OrdersPageProps) {
             Search and review operational orders.
           </p>
         </div>
+        <PrintLeftForTodayButton />
       </header>
 
       <div className="flex flex-wrap items-center justify-between gap-3">

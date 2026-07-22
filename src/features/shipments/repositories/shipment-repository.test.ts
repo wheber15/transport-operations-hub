@@ -1,7 +1,14 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const prismaMock = vi.hoisted(() => ({
-  shipment: { create: vi.fn(), updateMany: vi.fn(), findMany: vi.fn(), count: vi.fn() },
+  shipment: {
+    create: vi.fn(),
+    updateMany: vi.fn(),
+    findMany: vi.fn(),
+    findFirst: vi.fn(),
+    count: vi.fn(),
+  },
+  activity: { findMany: vi.fn() },
   $transaction: vi.fn(),
 }));
 
@@ -11,6 +18,9 @@ import {
   buildShipmentsWhere,
   closeShipment,
   createShipment,
+  getById,
+  getSummary,
+  list,
   unassignDeliveryAtomically,
   updateMovementTimesAtomically,
   updateOpenShipment,
@@ -19,6 +29,30 @@ import {
 const actorId = "11111111-1111-4111-8111-111111111111";
 const shipmentId = "22222222-2222-4222-8222-222222222222";
 const carrierId = "33333333-3333-4333-8333-333333333333";
+
+const shipmentWithNoMovementTimes = {
+  id: shipmentId,
+  carrierId,
+  shipmentNumber: "AXON-001",
+  dispatchDate: null,
+  deliveryDate: null,
+  status: "OPEN" as const,
+  driverInAt: null,
+  trailerLoadedAt: null,
+  driverOutAt: null,
+  carrier: { name: "Dachser", carrierNumber: "401210", deletedAt: null },
+  _count: { deliveries: 0 },
+  deliveries: [],
+};
+
+const defaultListFilters = {
+  page: 1,
+  pageSize: 25,
+  datePreset: "all" as const,
+  status: "all" as const,
+  sortBy: "shipmentNumber" as const,
+  sortDirection: "asc" as const,
+};
 
 describe("shipment repository lifecycle", () => {
   beforeEach(() => vi.clearAllMocks());
@@ -176,5 +210,66 @@ describe("shipment repository lifecycle", () => {
       },
       AND: expect.arrayContaining([{ carrierId }, { status: "OPEN" }]),
     });
+  });
+
+  it("loads pre-migration Shipments with null movement timestamps as awaiting driver", async () => {
+    prismaMock.$transaction.mockResolvedValue([[shipmentWithNoMovementTimes], 1]);
+
+    await expect(list(defaultListFilters)).resolves.toEqual({
+      items: [
+        expect.objectContaining({
+          id: shipmentId,
+          movementState: "awaiting-driver",
+        }),
+      ],
+      total: 1,
+    });
+
+    expect(prismaMock.shipment.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        select: expect.objectContaining({
+          driverInAt: true,
+          trailerLoadedAt: true,
+          driverOutAt: true,
+        }),
+      })
+    );
+  });
+
+  it("calculates summary metrics when movement timestamps are null", async () => {
+    prismaMock.shipment.findMany.mockResolvedValue([shipmentWithNoMovementTimes]);
+    prismaMock.shipment.count.mockResolvedValueOnce(1).mockResolvedValueOnce(1);
+
+    await expect(getSummary(defaultListFilters)).resolves.toEqual({
+      shipments: 1,
+      plannedPallets: 0,
+      actualPallets: 0,
+      actualWeight: null,
+      openShipments: 1,
+    });
+  });
+
+  it("returns Shipment detail with empty activity and null movement timestamps", async () => {
+    prismaMock.shipment.findFirst.mockResolvedValue({
+      ...shipmentWithNoMovementTimes,
+      notes: null,
+      createdAt: new Date("2026-07-22T08:00:00.000Z"),
+      updatedAt: new Date("2026-07-22T08:00:00.000Z"),
+      createdBy: null,
+      updatedBy: null,
+      closedAt: null,
+      closedBy: null,
+    });
+    prismaMock.activity.findMany.mockResolvedValue([]);
+
+    await expect(getById(shipmentId)).resolves.toEqual(
+      expect.objectContaining({
+        movementState: "awaiting-driver",
+        driverInAt: null,
+        trailerLoadedAt: null,
+        driverOutAt: null,
+        activities: [],
+      })
+    );
   });
 });

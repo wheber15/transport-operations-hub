@@ -231,15 +231,7 @@ export function getValidatedShipmentFilters(input: unknown): ShipmentSearchFilte
 }
 
 export async function listActiveCarriers() {
-  try {
-    return await listActiveCarriersFromRepository();
-  } catch (error) {
-    console.error("shipment_carrier_load_failed", {
-      operation: "listActiveCarriers",
-      error: error instanceof Error ? error.message : "unknown",
-    });
-    return [];
-  }
+  return listActiveCarriersFromRepository();
 }
 
 export async function listCarriersForShipmentFilters() {

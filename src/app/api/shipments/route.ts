@@ -4,6 +4,7 @@ import { getCurrentUser } from "@/features/auth/application/session";
 import {
   DeliveryAssignmentForbiddenError,
   ShipmentDuplicateError,
+  ShipmentCarrierUnavailableError,
   createShipment,
   listShipments,
 } from "@/features/shipments/services/shipment-service";
@@ -52,6 +53,11 @@ export async function POST(request: Request) {
       return NextResponse.json(
         { error: { code: "SHIPMENT_ALREADY_EXISTS", message: "Shipment number already exists." } },
         { status: 409 }
+      );
+    if (error instanceof ShipmentCarrierUnavailableError)
+      return NextResponse.json(
+        { error: { code: "INVALID_CARRIER", message: "Select an active Carrier." } },
+        { status: 400 }
       );
     if (error instanceof ZodError || error instanceof SyntaxError)
       return NextResponse.json(

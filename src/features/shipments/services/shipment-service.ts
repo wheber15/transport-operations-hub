@@ -7,6 +7,7 @@ import {
   listAvailableDeliveries as listAvailableDeliveriesFromRepository,
   listDeliveries as listDeliveriesFromRepository,
   listActiveCarriers as listActiveCarriersFromRepository,
+  isActiveCarrier,
   search as searchShipmentsFromRepository,
   unassignDeliveryAtomically,
   createShipment as createShipmentFromRepository,
@@ -40,6 +41,7 @@ export class DeliveryAssignmentForbiddenError extends Error {}
 export class ShipmentClosedError extends Error {}
 export class ShipmentDuplicateError extends Error {}
 export class ShipmentEmptyError extends Error {}
+export class ShipmentCarrierUnavailableError extends Error {}
 
 type DeliveryAssignmentActor = { id: string; role: string | null };
 
@@ -64,7 +66,9 @@ export async function assignDeliveryToShipment(
 
 export async function createShipment(actor: DeliveryAssignmentActor, input: unknown) {
   requireDeliveryAssignmentRole(actor);
-  const shipment = await createShipmentFromRepository(actor.id, shipmentCreateSchema.parse(input));
+  const payload = shipmentCreateSchema.parse(input);
+  if (!(await isActiveCarrier(payload.carrierId))) throw new ShipmentCarrierUnavailableError();
+  const shipment = await createShipmentFromRepository(actor.id, payload);
   if (shipment === "duplicate") throw new ShipmentDuplicateError();
   return shipment;
 }
@@ -87,10 +91,14 @@ export async function updateOpenShipment(
   input: unknown
 ) {
   requireDeliveryAssignmentRole(actor);
+  const payload = shipmentUpdateSchema.parse(input);
+  if (payload.carrierId && !(await isActiveCarrier(payload.carrierId))) {
+    throw new ShipmentCarrierUnavailableError();
+  }
   const result = await updateOpenShipmentFromRepository(
     actor.id,
     shipmentIdSchema.parse(id),
-    shipmentUpdateSchema.parse(input)
+    payload
   );
   if (result === "duplicate") throw new ShipmentDuplicateError();
   if (result === "not-open") throw new ShipmentClosedError();

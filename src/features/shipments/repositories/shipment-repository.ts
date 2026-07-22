@@ -226,7 +226,7 @@ export async function search(query: string, page = 1, pageSize = 25) {
 
 export async function listActiveCarriers() {
   return prisma.carrier.findMany({
-    where: { deletedAt: null },
+    where: { deletedAt: null, active: true },
     select: {
       id: true,
       name: true,
@@ -236,6 +236,15 @@ export async function listActiveCarriers() {
     },
     orderBy: [{ name: "asc" }, { id: "asc" }],
   });
+}
+
+export async function isActiveCarrier(carrierId: string) {
+  return Boolean(
+    await prisma.carrier.findFirst({
+      where: { id: carrierId, deletedAt: null, active: true },
+      select: { id: true },
+    })
+  );
 }
 
 export async function listDeliveries(shipmentId: string): Promise<ShipmentDelivery[]> {

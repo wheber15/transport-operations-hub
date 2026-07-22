@@ -6,6 +6,7 @@ import {
   DeliveryAssignmentForbiddenError,
   ShipmentClosedError,
   ShipmentDuplicateError,
+  ShipmentCarrierUnavailableError,
   ShipmentNotFoundError,
   getShipmentById,
   updateOpenShipment,
@@ -72,6 +73,12 @@ export async function PATCH(request: Request, { params }: RouteContext<"/api/shi
       return NextResponse.json(
         { error: { code: "SHIPMENT_ALREADY_EXISTS", message: "Shipment number already exists." } },
         { status: 409 }
+      );
+    }
+    if (error instanceof ShipmentCarrierUnavailableError) {
+      return NextResponse.json(
+        { error: { code: "INVALID_CARRIER", message: "Select an active Carrier." } },
+        { status: 400 }
       );
     }
     if (error instanceof ShipmentClosedError) {

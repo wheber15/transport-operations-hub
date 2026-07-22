@@ -17,7 +17,13 @@ export function EditShipmentDialog({
   carriers,
   shipment,
 }: {
-  carriers: Array<{ id: string; name: string }>;
+  carriers: Array<{
+    id: string;
+    name: string;
+    carrierNumber: string;
+    collectionTime: string | null;
+    dailyTrailerLimit: number | null;
+  }>;
   shipment: ShipmentForm & { id: string };
 }) {
   const router = useRouter();
@@ -99,7 +105,7 @@ export function EditShipmentDialog({
                   <option value="">Select carrier</option>
                   {carriers.map((carrier) => (
                     <option key={carrier.id} value={carrier.id}>
-                      {carrier.name}
+                      {carrier.name} — {carrier.carrierNumber}
                     </option>
                   ))}
                 </select>

@@ -227,7 +227,13 @@ export async function search(query: string, page = 1, pageSize = 25) {
 export async function listActiveCarriers() {
   return prisma.carrier.findMany({
     where: { deletedAt: null },
-    select: { id: true, name: true },
+    select: {
+      id: true,
+      name: true,
+      carrierNumber: true,
+      collectionTime: true,
+      dailyTrailerLimit: true,
+    },
     orderBy: [{ name: "asc" }, { id: "asc" }],
   });
 }

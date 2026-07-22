@@ -15,7 +15,13 @@ const initialForm: FormState = { shipmentNumber: "", dispatchDate: "", carrierId
 export function CreateShipmentDialog({
   carriers,
 }: {
-  carriers: Array<{ id: string; name: string }>;
+  carriers: Array<{
+    id: string;
+    name: string;
+    carrierNumber: string;
+    collectionTime: string | null;
+    dailyTrailerLimit: number | null;
+  }>;
 }) {
   const router = useRouter();
   const shipmentNumberRef = useRef<HTMLInputElement>(null);
@@ -150,7 +156,7 @@ export function CreateShipmentDialog({
                   <option value="">Select carrier</option>
                   {carriers.map((carrier) => (
                     <option key={carrier.id} value={carrier.id}>
-                      {carrier.name}
+                      {carrier.name} — {carrier.carrierNumber}
                     </option>
                   ))}
                 </select>

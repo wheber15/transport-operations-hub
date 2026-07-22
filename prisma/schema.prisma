@@ -379,8 +379,16 @@ enum ShipmentStatus {
 }
 
 model Carrier {
-  id   String @id @default(uuid()) @db.Uuid
-  name String
+  id                String  @id @default(uuid()) @db.Uuid
+  carrierNumber     String  @unique
+  name              String
+  active            Boolean @default(true)
+  contactName       String?
+  email             String?
+  phone             String?
+  collectionTime    String?
+  dailyTrailerLimit Int?
+  notes             String?
 
   createdAt   DateTime  @default(now()) @db.Timestamptz(3)
   updatedAt   DateTime  @updatedAt @db.Timestamptz(3)
@@ -392,6 +400,7 @@ model Carrier {
   createdBy User?      @relation("UserCreatedCarriers", fields: [createdById], references: [id], onDelete: SetNull)
   updatedBy User?      @relation("UserUpdatedCarriers", fields: [updatedById], references: [id], onDelete: SetNull)
 
+  @@index([active, name])
   @@map("carrier")
 }
 

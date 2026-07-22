@@ -1,5 +1,12 @@
 # Business Rules
 
+## Carrier management
+
+- Carrier Number is unique and preserved as a string, including leading zeros.
+- Only active Carriers are available for new Shipments; inactive Carriers remain linked to historical Shipments.
+- Collection Time and Daily Trailer Limit are informational and do not block Shipment planning.
+- Deactivation does not delete Carrier or Shipment history.
+
 ## 1. Purpose
 
 This document defines the business rules, operational workflows, and terminology used throughout Transport Operations Hub. It is the authoritative reference for product behaviour and describes how the transport operation works.

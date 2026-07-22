@@ -7,6 +7,7 @@ import {
   LayoutDashboard,
   Settings,
   Truck,
+  TruckIcon,
   UserRound,
   Users,
 } from "lucide-react";
@@ -41,6 +42,12 @@ export const primaryNavigation: readonly NavigationItem[] = [
     href: "/shipments",
     icon: Truck,
     label: "Shipments",
+    available: true,
+  },
+  {
+    href: "/carriers",
+    icon: TruckIcon,
+    label: "Carriers",
     available: true,
   },
   {

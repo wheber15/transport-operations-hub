@@ -21,3 +21,7 @@ export function canManageDeliveryImports(role: string | null) {
 export function canManageDataImports(role: string | null) {
   return dataImportRoles.includes(role as (typeof dataImportRoles)[number]);
 }
+
+export function canManageCarriers(role: string | null) {
+  return role === roleNames.administrator;
+}

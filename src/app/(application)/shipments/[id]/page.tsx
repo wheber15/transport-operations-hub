@@ -111,7 +111,7 @@ export default async function ShipmentDetailPage({ params }: ShipmentDetailPageP
             {shipment.carrierName ?? "Carrier unavailable"}
           </p>
         </div>
-        {shipment.status === "OPEN" && canManageAssignments ? (
+        {canManageAssignments ? (
           <div className="flex flex-wrap gap-2">
             <EditShipmentDialog
               carriers={carriers}
@@ -124,8 +124,10 @@ export default async function ShipmentDetailPage({ params }: ShipmentDetailPageP
                 notes: shipment.notes ?? "",
               }}
             />
-            <CloseShipmentButton deliveryCount={shipment.deliveryCount} shipmentId={shipment.id} />
-            <DeleteShipmentButton deliveryCount={shipment.deliveryCount} shipmentId={shipment.id} />
+            {shipment.status === "OPEN" ? (
+              <CloseShipmentButton deliveryCount={shipment.deliveryCount} shipmentId={shipment.id} />
+            ) : null}
+            <DeleteShipmentButton deliveryCount={shipment.deliveryCount} shipmentId={shipment.id} shipmentNumber={shipment.shipmentNumber} />
           </div>
         ) : null}
       </header>

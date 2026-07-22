@@ -11,6 +11,7 @@ import {
   buildShipmentsWhere,
   closeShipment,
   createShipment,
+  unassignDeliveryAtomically,
   updateOpenShipment,
 } from "./shipment-repository";
 
@@ -47,17 +48,42 @@ describe("shipment repository lifecycle", () => {
     ).resolves.toBe("duplicate");
   });
 
-  it("edits OPEN Shipments only", async () => {
+  it("edits active Shipments regardless of lifecycle status", async () => {
     prismaMock.shipment.updateMany.mockResolvedValue({ count: 1 });
     await expect(updateOpenShipment(actorId, shipmentId, { notes: "Updated" })).resolves.toBe(
       "updated"
     );
     expect(prismaMock.shipment.updateMany).toHaveBeenCalledWith(
-      expect.objectContaining({ where: expect.objectContaining({ status: "OPEN" }) })
+      expect.objectContaining({ where: expect.objectContaining({ deletedAt: null }) })
     );
     prismaMock.shipment.updateMany.mockResolvedValue({ count: 0 });
     await expect(updateOpenShipment(actorId, shipmentId, { notes: "Updated" })).resolves.toBe(
       "not-open"
+    );
+  });
+
+  it("releases an assigned Delivery from a Closed Shipment", async () => {
+    const transaction = {
+      shipment: { findFirst: vi.fn().mockResolvedValue({ shipmentNumber: "AXON-001" }) },
+      delivery: {
+        findFirst: vi.fn().mockResolvedValue({ deliveryNumber: "19411588" }),
+        updateMany: vi.fn().mockResolvedValue({ count: 1 }),
+      },
+      activity: { create: vi.fn() },
+    };
+    prismaMock.$transaction.mockImplementation(
+      async (callback: (tx: typeof transaction) => unknown) => callback(transaction)
+    );
+    await expect(
+      unassignDeliveryAtomically({ actorId, shipmentId, deliveryId: "delivery-id" })
+    ).resolves.toBe("unassigned");
+    expect(transaction.shipment.findFirst).toHaveBeenCalledWith(
+      expect.objectContaining({ where: { id: shipmentId, deletedAt: null } })
+    );
+    expect(transaction.delivery.updateMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ shipmentId: null, updatedById: actorId }),
+      })
     );
   });
 

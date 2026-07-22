@@ -439,7 +439,7 @@ export async function unassignDeliveryAtomically(input: {
 }) {
   return prisma.$transaction(async (transaction) => {
     const shipment = await transaction.shipment.findFirst({
-      where: { id: input.shipmentId, deletedAt: null, status: "OPEN" },
+      where: { id: input.shipmentId, deletedAt: null },
       select: { shipmentNumber: true },
     });
     if (!shipment) return "shipment-not-found" as const;
@@ -518,7 +518,7 @@ export async function updateOpenShipment(
 ) {
   try {
     const result = await prisma.shipment.updateMany({
-      where: { id: shipmentId, deletedAt: null, status: "OPEN" },
+      where: { id: shipmentId, deletedAt: null },
       data: {
         ...(input.shipmentNumber === undefined ? {} : { shipmentNumber: input.shipmentNumber }),
         ...(input.carrierId === undefined ? {} : { carrierId: input.carrierId }),

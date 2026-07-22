@@ -9,9 +9,11 @@ import { Button } from "@/components/ui/button";
 
 export function DeleteShipmentButton({
   shipmentId,
+  shipmentNumber,
   deliveryCount,
 }: {
   shipmentId: string;
+  shipmentNumber: string;
   deliveryCount: number;
 }) {
   const router = useRouter();
@@ -51,7 +53,7 @@ export function DeleteShipmentButton({
           role="dialog"
         >
           <div className="bg-background border-border w-full max-w-md rounded-xl border p-5 shadow-xl">
-            <h2 className="font-semibold">Delete Shipment?</h2>
+            <h2 className="font-semibold">Delete Shipment {shipmentNumber}?</h2>
             <p className="text-muted-foreground mt-3 text-sm">
               Deleting this shipment will return its assigned deliveries to Awaiting Shipment.
             </p>

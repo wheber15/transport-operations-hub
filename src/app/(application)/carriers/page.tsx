@@ -5,6 +5,7 @@ import { OperationsPanel } from "@/components/shared/operations/operations-panel
 import { requireAuthenticatedUser } from "@/features/auth/application/session";
 import { canManageCarriers } from "@/features/auth/domain/roles";
 import { CarrierManagement } from "@/features/carriers/components/carrier-management";
+import { Button } from "@/components/ui/button";
 import { getCarriers } from "@/features/carriers/services/carrier-service";
 export const metadata: Metadata = { title: "Carriers" };
 export default async function CarriersPage({
@@ -43,6 +44,31 @@ export default async function CarriersPage({
           </OperationsPanel>
         ))}
       </div>
+      <form className="flex gap-2" method="get">
+        <input
+          className="border-input h-9 rounded border px-2"
+          defaultValue={params.query}
+          name="query"
+          placeholder="Search Carriers"
+        />
+        <select
+          className="border-input h-9 rounded border px-2"
+          defaultValue={canManageCarriers(user.role) ? (params.state ?? "active") : "active"}
+          disabled={!canManageCarriers(user.role)}
+          name="state"
+        >
+          <option value="active">Active</option>
+          {canManageCarriers(user.role) ? (
+            <>
+              <option value="inactive">Inactive</option>
+              <option value="all">All</option>
+            </>
+          ) : null}
+        </select>
+        <Button size="sm" type="submit" variant="outline">
+          Apply
+        </Button>
+      </form>
       <OperationsPanel aria-label="Carriers workspace">
         {result.items.length ? (
           <CarrierManagement canManage={canManageCarriers(user.role)} items={result.items} />

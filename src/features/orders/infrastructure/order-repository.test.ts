@@ -11,7 +11,7 @@ const prismaMock = vi.hoisted(() => ({
 
 vi.mock("@/server/db/prisma", () => ({ prisma: prismaMock }));
 
-import { listOrders } from "./order-repository";
+import { buildOrdersWhere, listOrders } from "./order-repository";
 
 const baseOrder = {
   id: "2dc5ad51-7c13-47c2-9e49-0c934f2454d6",
@@ -95,5 +95,25 @@ describe("order repository pallet counts", () => {
         }),
       ])
     );
+  });
+
+  it("filters Goods Issue Date to the Tomorrow scope", () => {
+    expect(
+      buildOrdersWhere({
+        page: 1,
+        pageSize: 25,
+        sortBy: "goodsIssueDate",
+        sortDirection: "asc",
+        datePreset: "tomorrow",
+        goodsIssueFrom: "2026-07-23",
+        goodsIssueTo: "2026-07-23",
+      })
+    ).toMatchObject({
+      deletedAt: null,
+      goodsIssueDate: {
+        gte: new Date("2026-07-23T00:00:00.000Z"),
+        lte: new Date("2026-07-23T00:00:00.000Z"),
+      },
+    });
   });
 });

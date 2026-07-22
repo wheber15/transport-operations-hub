@@ -8,13 +8,30 @@ const optionalSearchQuery = z.preprocess(
   z.string().trim().min(1).max(200).optional()
 );
 
+const orderDatePresetValues = [
+  "today",
+  "tomorrow",
+  "yesterday",
+  "thisWeek",
+  "all",
+  "custom",
+] as const;
+const orderDatePresetSchema = z.preprocess(
+  (value) =>
+    typeof value === "string" &&
+    orderDatePresetValues.includes(value as (typeof orderDatePresetValues)[number])
+      ? value
+      : undefined,
+  z.enum(orderDatePresetValues).default("today")
+);
+
 export const orderSearchFiltersSchema = z.object({
   query: optionalSearchQuery,
   page: z.coerce.number().int().min(1).default(1),
   pageSize: z.coerce.number().int().min(1).max(100).default(25),
   sortBy: z.enum(orderSortFields).default("orderNumber"),
   sortDirection: z.enum(["asc", "desc"]).default("asc"),
-  datePreset: z.enum(["today", "yesterday", "thisWeek", "all", "custom"]).default("today"),
+  datePreset: orderDatePresetSchema,
   goodsIssueFrom: z.string().date().optional(),
   goodsIssueTo: z.string().date().optional(),
   customer: optionalSearchQuery,

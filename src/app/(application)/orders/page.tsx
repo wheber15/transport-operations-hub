@@ -16,6 +16,8 @@ import { canManageDeliveryAssignments } from "@/features/auth/domain/roles";
 import { OrdersLiveSearch } from "@/features/orders/components/orders-live-search";
 import { OrdersFilters } from "@/features/orders/components/orders-filters";
 import { PrintLeftForTodayButton } from "@/features/orders/components/print-left-for-today-button";
+import { orderDatePresetOptions } from "@/features/orders/lib/order-date-presets";
+import { orderHref, orderPresetHref } from "@/features/orders/lib/order-url-state";
 
 export const metadata: Metadata = {
   title: "Orders",
@@ -27,63 +29,6 @@ type OrdersPageProps = {
 
 function getFirstValue(value: string | string[] | undefined) {
   return Array.isArray(value) ? value[0] : value;
-}
-
-function getPageHref(page: number, filters: ReturnType<typeof getValidatedOrderFilters>) {
-  const searchParams = new URLSearchParams({
-    page: String(page),
-    pageSize: String(filters.pageSize),
-    sortBy: filters.sortBy,
-    sortDirection: filters.sortDirection,
-    datePreset: filters.datePreset,
-  });
-
-  if (filters.query) {
-    searchParams.set("query", filters.query);
-  }
-  if (filters.datePreset === "custom") {
-    if (filters.goodsIssueFrom) searchParams.set("goodsIssueFrom", filters.goodsIssueFrom);
-    if (filters.goodsIssueTo) searchParams.set("goodsIssueTo", filters.goodsIssueTo);
-  }
-  for (const [key, value] of Object.entries({
-    customer: filters.customer,
-    route: filters.route,
-    shipTo: filters.shipTo,
-    shipmentState: filters.shipmentState,
-    palletState: filters.palletState,
-    status: filters.status,
-    recordState: filters.recordState,
-  })) {
-    if (value && !["all", "active"].includes(value)) searchParams.set(key, value);
-  }
-
-  return `/orders?${searchParams.toString()}`;
-}
-
-function getPresetHref(
-  preset: "today" | "yesterday" | "thisWeek" | "all",
-  filters: ReturnType<typeof getValidatedOrderFilters>
-) {
-  const searchParams = new URLSearchParams({
-    page: "1",
-    pageSize: String(filters.pageSize),
-    sortBy: filters.sortBy,
-    sortDirection: filters.sortDirection,
-    datePreset: preset,
-  });
-  if (filters.query) searchParams.set("query", filters.query);
-  for (const [key, value] of Object.entries({
-    customer: filters.customer,
-    route: filters.route,
-    shipTo: filters.shipTo,
-    shipmentState: filters.shipmentState,
-    palletState: filters.palletState,
-    status: filters.status,
-    recordState: filters.recordState,
-  })) {
-    if (value && !["all", "active"].includes(value)) searchParams.set(key, value);
-  }
-  return `/orders?${searchParams.toString()}`;
 }
 
 export default async function OrdersPage({ searchParams }: OrdersPageProps) {
@@ -129,18 +74,11 @@ export default async function OrdersPage({ searchParams }: OrdersPageProps) {
 
       <div className="flex flex-wrap items-center justify-between gap-3">
         <nav aria-label="Goods Issue Date shortcuts" className="flex flex-wrap gap-2">
-          {(
-            [
-              ["today", "Today"],
-              ["yesterday", "Yesterday"],
-              ["thisWeek", "This Week"],
-              ["all", "All"],
-            ] as const
-          ).map(([preset, label]) => (
+          {orderDatePresetOptions.map(([preset, label]) => (
             <Button
               key={preset}
               nativeButton={false}
-              render={<Link href={getPresetHref(preset, filters)} />}
+              render={<Link href={orderPresetHref(preset, filters)} />}
               size="sm"
               variant={filters.datePreset === preset ? "default" : "outline"}
             >
@@ -204,7 +142,7 @@ export default async function OrdersPage({ searchParams }: OrdersPageProps) {
                 <Button
                   disabled={filters.page <= 1}
                   nativeButton={false}
-                  render={<Link href={getPageHref(Math.max(1, filters.page - 1), filters)} />}
+                  render={<Link href={orderHref(filters, Math.max(1, filters.page - 1))} />}
                   size="sm"
                   variant="outline"
                 >
@@ -217,7 +155,7 @@ export default async function OrdersPage({ searchParams }: OrdersPageProps) {
                   disabled={filters.page >= totalPages}
                   nativeButton={false}
                   render={
-                    <Link href={getPageHref(Math.min(totalPages, filters.page + 1), filters)} />
+                    <Link href={orderHref(filters, Math.min(totalPages, filters.page + 1))} />
                   }
                   size="sm"
                   variant="outline"

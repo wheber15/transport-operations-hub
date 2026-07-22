@@ -1,5 +1,6 @@
 import { irelandBusinessDate } from "@/lib/business-date";
-export type GoodsIssueDatePreset = "today" | "yesterday" | "thisWeek" | "all" | "custom";
+export type GoodsIssueDatePreset =
+  "today" | "tomorrow" | "yesterday" | "thisWeek" | "all" | "custom";
 
 function isoDate(value: Date) {
   return irelandBusinessDate(value);
@@ -19,6 +20,7 @@ export function resolveGoodsIssueDateScope(
   const today = isoDate(referenceDate);
   if (preset === "all") return {};
   if (preset === "today") return { from: today, to: today };
+  if (preset === "tomorrow") return { from: addDays(today, 1), to: addDays(today, 1) };
   if (preset === "yesterday") {
     const yesterday = addDays(today, -1);
     return { from: yesterday, to: yesterday };

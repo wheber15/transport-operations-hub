@@ -15,7 +15,7 @@ export type OrderSearchFilters = {
   query?: string;
   sortBy: OrderSortField;
   sortDirection: OrderSortDirection;
-  datePreset: "today" | "yesterday" | "thisWeek" | "all" | "custom";
+  datePreset: "today" | "tomorrow" | "yesterday" | "thisWeek" | "all" | "custom";
   goodsIssueFrom?: string;
   goodsIssueTo?: string;
   customer?: string;

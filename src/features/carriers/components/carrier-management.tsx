@@ -126,7 +126,7 @@ export function CarrierManagement({ items, canManage }: { items: Carrier[]; canM
                   <input
                     className="border-input h-9 rounded border px-2"
                     type={
-                      key === "collectionTime"
+                      key === "collectionStartTime" || key === "collectionEndTime"
                         ? "time"
                         : key === "dailyTrailerLimit"
                           ? "number"

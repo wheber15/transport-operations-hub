@@ -2,9 +2,10 @@
 
 import { Trash2 } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { toast } from "sonner";
 
+import { ConfirmationDialog } from "@/components/shared/confirmation-dialog";
 import { Button } from "@/components/ui/button";
 
 export function DeleteShipmentButton({
@@ -19,6 +20,8 @@ export function DeleteShipmentButton({
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [pending, setPending] = useState(false);
+  const triggerRef = useRef<HTMLButtonElement>(null);
+
   async function remove() {
     setPending(true);
     try {
@@ -32,6 +35,7 @@ export function DeleteShipmentButton({
       toast.success(
         `${payload?.data?.releasedDeliveryCount ?? deliveryCount} deliveries returned to Awaiting Shipment.`
       );
+      setOpen(false);
       router.push("/shipments");
       router.refresh();
     } catch (error) {
@@ -40,42 +44,33 @@ export function DeleteShipmentButton({
       setPending(false);
     }
   }
+
   return (
     <>
-      <Button onClick={() => setOpen(true)} size="sm" type="button" variant="destructive">
+      <Button
+        onClick={() => setOpen(true)}
+        ref={triggerRef}
+        size="sm"
+        type="button"
+        variant="destructive"
+      >
         <Trash2 aria-hidden="true" />
         Delete Shipment
       </Button>
-      {open ? (
-        <div
-          aria-modal="true"
-          className="bg-background/80 fixed inset-0 z-50 grid place-items-center p-4 backdrop-blur-sm"
-          role="dialog"
-        >
-          <div className="bg-background border-border w-full max-w-md rounded-xl border p-5 shadow-xl">
-            <h2 className="font-semibold">Delete Shipment {shipmentNumber}?</h2>
-            <p className="text-muted-foreground mt-3 text-sm">
-              Deleting this shipment will return its assigned deliveries to Awaiting Shipment.
-            </p>
-            <p className="mt-2 text-sm font-medium">
-              {deliveryCount} {deliveryCount === 1 ? "delivery" : "deliveries"} will be released.
-            </p>
-            <div className="mt-5 flex justify-end gap-2">
-              <Button
-                disabled={pending}
-                onClick={() => setOpen(false)}
-                type="button"
-                variant="outline"
-              >
-                Cancel
-              </Button>
-              <Button disabled={pending} onClick={remove} type="button" variant="destructive">
-                {pending ? "Deleting…" : "Delete Shipment"}
-              </Button>
-            </div>
-          </div>
-        </div>
-      ) : null}
+      <ConfirmationDialog
+        confirmLabel="Delete Shipment"
+        destructive
+        onConfirm={remove}
+        onOpenChange={setOpen}
+        open={open}
+        pending={pending}
+        title={`Delete shipment ${shipmentNumber}?`}
+        triggerRef={triggerRef}
+      >
+        This will release {deliveryCount} assigned {deliveryCount === 1 ? "delivery" : "deliveries"}
+        and return {deliveryCount === 1 ? "it" : "them"} to Awaiting Shipment. The shipment will be
+        retained in audit history.
+      </ConfirmationDialog>
     </>
   );
 }

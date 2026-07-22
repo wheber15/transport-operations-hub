@@ -1,9 +1,10 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 
+import { ConfirmationDialog } from "@/components/shared/confirmation-dialog";
 import { Button } from "@/components/ui/button";
 
 export function CloseShipmentButton({
@@ -15,13 +16,10 @@ export function CloseShipmentButton({
 }) {
   const router = useRouter();
   const [pending, setPending] = useState(false);
+  const [confirmingEmpty, setConfirmingEmpty] = useState(false);
+  const triggerRef = useRef<HTMLButtonElement>(null);
 
-  async function close() {
-    const confirmEmpty = deliveryCount === 0;
-    if (confirmEmpty && !window.confirm("This Shipment contains no Deliveries. Close it anyway?")) {
-      return;
-    }
-
+  async function close(confirmEmpty = false) {
     setPending(true);
     try {
       const response = await fetch(`/api/shipments/${shipmentId}/close`, {
@@ -35,6 +33,7 @@ export function CloseShipmentButton({
       if (!response.ok) throw new Error(payload?.error?.message ?? "Shipment could not be closed.");
 
       toast.success("Shipment closed.");
+      setConfirmingEmpty(false);
       router.refresh();
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Shipment could not be closed.");
@@ -44,8 +43,27 @@ export function CloseShipmentButton({
   }
 
   return (
-    <Button disabled={pending} onClick={close} type="button" variant="outline">
-      {pending ? "Closing…" : "Close Shipment"}
-    </Button>
+    <>
+      <Button
+        disabled={pending}
+        onClick={deliveryCount === 0 ? () => setConfirmingEmpty(true) : () => close()}
+        ref={triggerRef}
+        type="button"
+        variant="outline"
+      >
+        {pending ? "Closing…" : "Close Shipment"}
+      </Button>
+      <ConfirmationDialog
+        confirmLabel="Close Shipment"
+        onConfirm={() => close(true)}
+        onOpenChange={setConfirmingEmpty}
+        open={confirmingEmpty}
+        pending={pending}
+        title="Close empty Shipment?"
+        triggerRef={triggerRef}
+      >
+        This Shipment contains no Deliveries. Close it anyway?
+      </ConfirmationDialog>
+    </>
   );
 }

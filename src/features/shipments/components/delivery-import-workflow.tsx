@@ -1,11 +1,12 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { ClipboardPaste, RotateCcw } from "lucide-react";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
+import { ConfirmationDialog } from "@/components/shared/confirmation-dialog";
 import type {
   DeliveryImportCommit,
   DeliveryImportPreview,
@@ -102,6 +103,8 @@ export function DeliveryImportWorkflow({
   const [preview, setPreview] = useState<DeliveryImportPreview | null>(null);
   const [commitResult, setCommitResult] = useState<DeliveryImportCommit | null>(null);
   const [pendingAction, setPendingAction] = useState<"preview" | "commit" | null>(null);
+  const [confirmingCommit, setConfirmingCommit] = useState(false);
+  const commitTriggerRef = useRef<HTMLButtonElement>(null);
   const inputSummary = useMemo(() => getClientInputSummary(input), [input]);
   const eligibleCount =
     preview?.results.filter((result) => result.classification === "eligible").length ?? 0;
@@ -132,10 +135,6 @@ export function DeliveryImportWorkflow({
 
   async function commitImport() {
     if (!preview || eligibleCount === 0) return;
-    if (
-      !window.confirm(`Assign ${eligibleCount} eligible Deliveries to Shipment ${shipmentNumber}?`)
-    )
-      return;
     setPendingAction("commit");
     try {
       const response = await fetch(`/api/shipments/${shipmentId}/delivery-import/commit`, {
@@ -229,7 +228,8 @@ export function DeliveryImportWorkflow({
           </Button>
           <Button
             disabled={pending || !preview || eligibleCount === 0}
-            onClick={commitImport}
+            onClick={() => setConfirmingCommit(true)}
+            ref={commitTriggerRef}
             type="button"
             variant="outline"
           >
@@ -258,6 +258,18 @@ export function DeliveryImportWorkflow({
           {commitResult ? <ResultSummary result={commitResult} /> : null}
         </div>
       ) : null}
+      <ConfirmationDialog
+        confirmLabel="Assign Deliveries"
+        onConfirm={commitImport}
+        onOpenChange={setConfirmingCommit}
+        open={confirmingCommit}
+        pending={pending}
+        title="Assign eligible deliveries?"
+        triggerRef={commitTriggerRef}
+      >
+        {eligibleCount} eligible {eligibleCount === 1 ? "delivery" : "deliveries"} will be assigned
+        to Shipment {shipmentNumber}.
+      </ConfirmationDialog>
     </section>
   );
 }

@@ -1,9 +1,10 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 
+import { ConfirmationDialog } from "@/components/shared/confirmation-dialog";
 import { Button } from "@/components/ui/button";
 
 export function DeliveryAssignmentAction({
@@ -21,13 +22,11 @@ export function DeliveryAssignmentAction({
 }) {
   const router = useRouter();
   const [pending, setPending] = useState(false);
+  const [confirming, setConfirming] = useState(false);
+  const triggerRef = useRef<HTMLButtonElement>(null);
   const isUnassign = type === "unassign";
+
   async function perform() {
-    if (
-      isUnassign &&
-      !window.confirm(`Unassign delivery ${deliveryNumber} from shipment ${shipmentNumber}?`)
-    )
-      return;
     setPending(true);
     try {
       const response = await fetch(
@@ -46,6 +45,7 @@ export function DeliveryAssignmentAction({
       if (!response.ok)
         throw new Error(payload.error?.message ?? "Delivery assignment could not be updated.");
       toast.success(isUnassign ? "Delivery unassigned." : "Delivery assigned.");
+      setConfirming(false);
       router.refresh();
     } catch (error) {
       toast.error(
@@ -55,16 +55,41 @@ export function DeliveryAssignmentAction({
       setPending(false);
     }
   }
+
   return (
-    <Button
-      aria-label={`${isUnassign ? "Unassign" : "Assign"} delivery`}
-      disabled={pending}
-      onClick={perform}
-      size="sm"
-      type="button"
-      variant={isUnassign ? "outline" : "default"}
-    >
-      {pending ? (isUnassign ? "Unassigning…" : "Assigning…") : isUnassign ? "Unassign" : "Assign"}
-    </Button>
+    <>
+      <Button
+        aria-label={`${isUnassign ? "Unassign" : "Assign"} delivery`}
+        disabled={pending}
+        onClick={isUnassign ? () => setConfirming(true) : perform}
+        ref={triggerRef}
+        size="sm"
+        type="button"
+        variant={isUnassign ? "outline" : "default"}
+      >
+        {pending
+          ? isUnassign
+            ? "Unassigning…"
+            : "Assigning…"
+          : isUnassign
+            ? "Unassign"
+            : "Assign"}
+      </Button>
+      {isUnassign ? (
+        <ConfirmationDialog
+          confirmLabel="Unassign Delivery"
+          destructive
+          onConfirm={perform}
+          onOpenChange={setConfirming}
+          open={confirming}
+          pending={pending}
+          title="Unassign delivery?"
+          triggerRef={triggerRef}
+        >
+          Delivery {deliveryNumber} will be removed from Shipment {shipmentNumber}, return to
+          Awaiting Shipment, and become available for planning again.
+        </ConfirmationDialog>
+      ) : null}
+    </>
   );
 }

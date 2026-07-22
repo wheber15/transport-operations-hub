@@ -127,4 +127,17 @@
   html {
     @apply font-sans;
   }
+  /* Chromium renders native option menus on a system light surface. Explicit
+     system colours prevent dark-theme inherited foreground text becoming invisible. */
+  select {
+    color-scheme: light;
+  }
+  select option,
+  select optgroup {
+    color: CanvasText;
+    background-color: Canvas;
+  }
+  select option:disabled {
+    color: GrayText;
+  }
 }

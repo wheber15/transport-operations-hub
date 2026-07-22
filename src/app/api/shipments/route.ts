@@ -67,7 +67,13 @@ export async function POST(request: Request) {
       );
     if (error instanceof ZodError || error instanceof SyntaxError)
       return NextResponse.json(
-        { error: { code: "INVALID_PAYLOAD", message: "Review the Shipment fields." } },
+        {
+          error: {
+            code: "INVALID_PAYLOAD",
+            message: "Review the Shipment fields.",
+            fieldErrors: error instanceof ZodError ? error.flatten().fieldErrors : undefined,
+          },
+        },
         { status: 400 }
       );
     if (error instanceof DeliveryAssignmentForbiddenError)

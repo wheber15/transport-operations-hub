@@ -6,12 +6,15 @@ import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
 import { formatCarrierSelectorLabel } from "@/features/carriers/lib/collection-window";
+import { suggestDeliveryDate } from "@/features/shipments/domain/delivery-date";
 
 type ShipmentForm = {
   shipmentNumber: string;
   dispatchDate: string;
+  deliveryDate: string;
   carrierId: string;
   notes: string;
+  saturdayOvertime?: boolean;
 };
 
 export function EditShipmentDialog({
@@ -94,9 +97,44 @@ export function EditShipmentDialog({
                   className="border-input h-9 rounded-md border px-2"
                   type="date"
                   value={form.dispatchDate}
-                  onChange={(event) => setForm({ ...form, dispatchDate: event.target.value })}
+                  onChange={(event) =>
+                    setForm({
+                      ...form,
+                      dispatchDate: event.target.value,
+                      deliveryDate: event.target.value
+                        ? suggestDeliveryDate(event.target.value, form.saturdayOvertime)
+                        : "",
+                    })
+                  }
                 />
               </label>
+              <label className="grid gap-1 text-sm">
+                Delivery Date
+                <input
+                  className="border-input h-9 rounded-md border px-2"
+                  type="date"
+                  value={form.deliveryDate}
+                  onChange={(event) => setForm({ ...form, deliveryDate: event.target.value })}
+                />
+              </label>
+              {new Date(`${form.dispatchDate || "1970-01-01"}T12:00:00.000Z`).getUTCDay() === 5 ? (
+                <label className="flex items-center gap-2 text-sm">
+                  <input
+                    checked={Boolean(form.saturdayOvertime)}
+                    onChange={(event) =>
+                      setForm({
+                        ...form,
+                        saturdayOvertime: event.target.checked,
+                        deliveryDate: form.dispatchDate
+                          ? suggestDeliveryDate(form.dispatchDate, event.target.checked)
+                          : "",
+                      })
+                    }
+                    type="checkbox"
+                  />
+                  Saturday delivery / overtime operation
+                </label>
+              ) : null}
               <label className="grid gap-1 text-sm">
                 Carrier
                 <select

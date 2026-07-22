@@ -11,6 +11,7 @@ import { DeliveryAssignmentAction } from "@/features/shipments/components/delive
 import { DeliveryImportWorkflow } from "@/features/shipments/components/delivery-import-workflow";
 import { CloseShipmentButton } from "@/features/shipments/components/close-shipment-button";
 import { EditShipmentDialog } from "@/features/shipments/components/edit-shipment-dialog";
+import { DeleteShipmentButton } from "@/features/shipments/components/delete-shipment-button";
 import {
   formatDateOnly,
   formatOperationalNumber,
@@ -118,11 +119,13 @@ export default async function ShipmentDetailPage({ params }: ShipmentDetailPageP
                 id: shipment.id,
                 shipmentNumber: shipment.shipmentNumber,
                 dispatchDate: shipment.dispatchDate?.toISOString().slice(0, 10) ?? "",
+                deliveryDate: shipment.deliveryDate?.toISOString().slice(0, 10) ?? "",
                 carrierId: shipment.carrierId,
                 notes: shipment.notes ?? "",
               }}
             />
             <CloseShipmentButton deliveryCount={shipment.deliveryCount} shipmentId={shipment.id} />
+            <DeleteShipmentButton deliveryCount={shipment.deliveryCount} shipmentId={shipment.id} />
           </div>
         ) : null}
       </header>

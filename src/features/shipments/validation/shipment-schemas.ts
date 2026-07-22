@@ -38,18 +38,35 @@ const optionalText = z.preprocess(
   (value) => (typeof value === "string" && value.trim() === "" ? null : value),
   z.string().trim().min(1).max(500).nullable().optional()
 );
-export const shipmentCreateSchema = z
-  .object({
-    shipmentNumber: z.string().trim().min(1).max(100),
-    carrierId: z.string().uuid(),
-    dispatchDate: z.string().date(),
-    deliveryDate: z.string().date().nullable().optional(),
-    notes: optionalText,
-  })
-  .strict();
-export const shipmentUpdateSchema = shipmentCreateSchema
+const shipmentFields = z.object({
+  shipmentNumber: z.string().trim().min(1).max(100),
+  carrierId: z.string().uuid(),
+  dispatchDate: z.string().date(),
+  deliveryDate: z.string().date().nullable().optional(),
+  saturdayOvertime: z.boolean().optional(),
+  notes: optionalText,
+});
+
+export const shipmentCreateSchema = shipmentFields.strict().superRefine((data, context) => {
+  if (data.deliveryDate && data.deliveryDate <= data.dispatchDate)
+    context.addIssue({
+      code: "custom",
+      message: "Delivery Date must be after Dispatch Date.",
+      path: ["deliveryDate"],
+    });
+});
+export const shipmentUpdateSchema = shipmentFields
   .partial()
-  .refine((data) => Object.values(data).some((value) => value !== undefined));
+  .strict()
+  .refine((data) => Object.values(data).some((value) => value !== undefined))
+  .superRefine((data, context) => {
+    if (data.deliveryDate && data.dispatchDate && data.deliveryDate <= data.dispatchDate)
+      context.addIssue({
+        code: "custom",
+        message: "Delivery Date must be after Dispatch Date.",
+        path: ["deliveryDate"],
+      });
+  });
 
 export const shipmentCloseSchema = z.object({ confirmEmpty: z.literal(true).optional() }).strict();
 

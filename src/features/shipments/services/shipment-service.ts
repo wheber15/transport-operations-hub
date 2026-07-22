@@ -14,6 +14,7 @@ import {
   unassignDeliveryAtomically,
   createShipment as createShipmentFromRepository,
   closeShipment as closeShipmentFromRepository,
+  deleteShipment as deleteShipmentFromRepository,
   updateOpenShipment as updateOpenShipmentFromRepository,
 } from "@/features/shipments/repositories/shipment-repository";
 import type {
@@ -31,6 +32,7 @@ import {
 } from "@/features/shipments/validation/shipment-schemas";
 import { canManageDeliveryAssignments } from "@/features/auth/domain/roles";
 import { resolveDispatchDateScope } from "@/features/shipments/domain/dispatch-date";
+import { suggestDeliveryDate } from "@/features/shipments/domain/delivery-date";
 
 export class ShipmentNotFoundError extends Error {
   constructor() {
@@ -45,6 +47,7 @@ export class ShipmentClosedError extends Error {}
 export class ShipmentDuplicateError extends Error {}
 export class ShipmentEmptyError extends Error {}
 export class ShipmentCarrierUnavailableError extends Error {}
+export class ShipmentDeleteNotFoundError extends Error {}
 
 type DeliveryAssignmentActor = { id: string; role: string | null };
 
@@ -71,7 +74,11 @@ export async function createShipment(actor: DeliveryAssignmentActor, input: unkn
   requireDeliveryAssignmentRole(actor);
   const payload = shipmentCreateSchema.parse(input);
   if (!(await isActiveCarrier(payload.carrierId))) throw new ShipmentCarrierUnavailableError();
-  const shipment = await createShipmentFromRepository(actor.id, payload);
+  const shipment = await createShipmentFromRepository(actor.id, {
+    ...payload,
+    deliveryDate:
+      payload.deliveryDate ?? suggestDeliveryDate(payload.dispatchDate, payload.saturdayOvertime),
+  });
   if (shipment === "duplicate") throw new ShipmentDuplicateError();
   return shipment;
 }
@@ -98,13 +105,23 @@ export async function updateOpenShipment(
   if (payload.carrierId && !(await isActiveCarrier(payload.carrierId))) {
     throw new ShipmentCarrierUnavailableError();
   }
-  const result = await updateOpenShipmentFromRepository(
-    actor.id,
-    shipmentIdSchema.parse(id),
-    payload
-  );
+  const result = await updateOpenShipmentFromRepository(actor.id, shipmentIdSchema.parse(id), {
+    ...payload,
+    deliveryDate:
+      payload.deliveryDate ??
+      (payload.dispatchDate
+        ? suggestDeliveryDate(payload.dispatchDate, payload.saturdayOvertime)
+        : undefined),
+  });
   if (result === "duplicate") throw new ShipmentDuplicateError();
   if (result === "not-open") throw new ShipmentClosedError();
+}
+
+export async function deleteShipment(actor: DeliveryAssignmentActor, id: unknown) {
+  requireDeliveryAssignmentRole(actor);
+  const result = await deleteShipmentFromRepository(actor.id, shipmentIdSchema.parse(id));
+  if (result === "not-found") throw new ShipmentDeleteNotFoundError();
+  return result;
 }
 
 export async function unassignDeliveryFromShipment(actor: DeliveryAssignmentActor, input: unknown) {

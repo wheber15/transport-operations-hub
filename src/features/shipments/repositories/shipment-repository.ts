@@ -581,3 +581,35 @@ export async function closeShipment(actorId: string, shipmentId: string, confirm
     return "closed" as const;
   });
 }
+
+export async function deleteShipment(actorId: string, shipmentId: string) {
+  return prisma.$transaction(async (tx) => {
+    const shipment = await tx.shipment.findFirst({
+      where: { id: shipmentId, deletedAt: null },
+      select: { shipmentNumber: true },
+    });
+    if (!shipment) return "not-found" as const;
+    const released = await tx.delivery.updateMany({
+      where: { shipmentId, deletedAt: null },
+      data: { shipmentId: null, updatedById: actorId },
+    });
+    const deletedAt = new Date();
+    await tx.shipment.update({
+      where: { id: shipmentId },
+      data: { deletedAt, updatedById: actorId },
+    });
+    await tx.activity.create({
+      data: {
+        entityType: "Shipment",
+        entityId: shipmentId,
+        action: "shipment_deleted",
+        description: `Shipment ${shipment.shipmentNumber} deleted; ${released.count} deliveries released to Awaiting Shipment.`,
+        metadata: { releasedDeliveryCount: released.count, deletedAt: deletedAt.toISOString() },
+        actorId,
+        createdById: actorId,
+        updatedById: actorId,
+      },
+    });
+    return { releasedDeliveryCount: released.count };
+  });
+}

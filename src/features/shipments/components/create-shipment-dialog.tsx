@@ -6,12 +6,20 @@ import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
 import { formatCarrierSelectorLabel } from "@/features/carriers/lib/collection-window";
+import { suggestDeliveryDate } from "@/features/shipments/domain/delivery-date";
 
-type FormFields = "shipmentNumber" | "dispatchDate" | "carrierId";
-type FormState = Record<FormFields | "notes", string>;
+type FormFields = "shipmentNumber" | "dispatchDate" | "deliveryDate" | "carrierId";
+type FormState = Record<FormFields | "notes", string> & { saturdayOvertime: boolean };
 type FormErrors = Partial<Record<FormFields, string>>;
 
-const initialForm: FormState = { shipmentNumber: "", dispatchDate: "", carrierId: "", notes: "" };
+const initialForm: FormState = {
+  shipmentNumber: "",
+  dispatchDate: "",
+  deliveryDate: "",
+  carrierId: "",
+  notes: "",
+  saturdayOvertime: false,
+};
 
 export function CreateShipmentDialog({
   carriers,
@@ -40,6 +48,7 @@ export function CreateShipmentDialog({
     const next: FormErrors = {};
     if (!form.shipmentNumber.trim()) next.shipmentNumber = "Shipment number is required.";
     if (!form.dispatchDate) next.dispatchDate = "Dispatch date is required.";
+    if (!form.deliveryDate) next.deliveryDate = "Delivery date is required.";
     if (!form.carrierId) next.carrierId = "Carrier is required.";
     setErrors(next);
     const first = Object.keys(next)[0] as FormFields | undefined;
@@ -48,6 +57,7 @@ export function CreateShipmentDialog({
         ({
           shipmentNumber: shipmentNumberRef,
           dispatchDate: dispatchDateRef,
+          deliveryDate: dispatchDateRef,
           carrierId: carrierRef,
         })[first].current?.focus()
       );
@@ -138,7 +148,15 @@ export function CreateShipmentDialog({
                   className="border-input h-9 rounded-md border px-2"
                   type="date"
                   value={form.dispatchDate}
-                  onChange={(event) => setForm({ ...form, dispatchDate: event.target.value })}
+                  onChange={(event) =>
+                    setForm({
+                      ...form,
+                      dispatchDate: event.target.value,
+                      deliveryDate: event.target.value
+                        ? suggestDeliveryDate(event.target.value, form.saturdayOvertime)
+                        : "",
+                    })
+                  }
                 />
                 {errors.dispatchDate ? (
                   <span className="text-destructive text-xs" id="dispatchDate-error">
@@ -146,6 +164,39 @@ export function CreateShipmentDialog({
                   </span>
                 ) : null}
               </label>
+              <label className="grid gap-1 text-sm">
+                Delivery Date
+                <input
+                  {...fieldProps("deliveryDate")}
+                  className="border-input h-9 rounded-md border px-2"
+                  type="date"
+                  value={form.deliveryDate}
+                  onChange={(event) => setForm({ ...form, deliveryDate: event.target.value })}
+                />
+                {errors.deliveryDate ? (
+                  <span className="text-destructive text-xs" id="deliveryDate-error">
+                    {errors.deliveryDate}
+                  </span>
+                ) : null}
+              </label>
+              {new Date(`${form.dispatchDate || "1970-01-01"}T12:00:00.000Z`).getUTCDay() === 5 ? (
+                <label className="flex items-center gap-2 text-sm">
+                  <input
+                    checked={form.saturdayOvertime}
+                    onChange={(event) =>
+                      setForm({
+                        ...form,
+                        saturdayOvertime: event.target.checked,
+                        deliveryDate: form.dispatchDate
+                          ? suggestDeliveryDate(form.dispatchDate, event.target.checked)
+                          : "",
+                      })
+                    }
+                    type="checkbox"
+                  />
+                  Saturday delivery / overtime operation
+                </label>
+              ) : null}
               <label className="grid gap-1 text-sm">
                 Carrier
                 <select

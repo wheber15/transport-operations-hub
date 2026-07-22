@@ -5,7 +5,8 @@ import { OperationsPanel } from "@/components/shared/operations/operations-panel
 import { requireAuthenticatedUser } from "@/features/auth/application/session";
 import { canManageCarriers } from "@/features/auth/domain/roles";
 import { CarrierManagement } from "@/features/carriers/components/carrier-management";
-import { Button } from "@/components/ui/button";
+import { CarrierSearchFilters } from "@/features/carriers/components/carrier-search-filters";
+import { readCarrierFilterParams } from "@/features/carriers/lib/carrier-filter-state";
 import { getCarriers } from "@/features/carriers/services/carrier-service";
 export const metadata: Metadata = { title: "Carriers" };
 export default async function CarriersPage({
@@ -15,9 +16,11 @@ export default async function CarriersPage({
 }) {
   const user = await requireAuthenticatedUser();
   const params = await searchParams;
+  const canManage = canManageCarriers(user.role);
+  const filters = readCarrierFilterParams(params, canManage);
   const result = await getCarriers(user, {
-    query: params.query,
-    state: canManageCarriers(user.role) ? (params.state ?? "active") : "active",
+    query: filters.query,
+    state: filters.state,
   });
   return (
     <div className="mx-auto flex w-full max-w-7xl flex-col gap-6">
@@ -29,7 +32,7 @@ export default async function CarriersPage({
             Manage transport providers and collection information
           </p>
         </div>
-        <CarrierManagement canManage={canManageCarriers(user.role)} items={[]} />
+        <CarrierManagement canManage={canManage} items={[]} />
       </header>
       <div className="grid gap-3 sm:grid-cols-4">
         {[
@@ -44,34 +47,14 @@ export default async function CarriersPage({
           </OperationsPanel>
         ))}
       </div>
-      <form className="flex gap-2" method="get">
-        <input
-          className="border-input h-9 rounded border px-2"
-          defaultValue={params.query}
-          name="query"
-          placeholder="Search Carriers"
-        />
-        <select
-          className="border-input h-9 rounded border px-2"
-          defaultValue={canManageCarriers(user.role) ? (params.state ?? "active") : "active"}
-          disabled={!canManageCarriers(user.role)}
-          name="state"
-        >
-          <option value="active">Active</option>
-          {canManageCarriers(user.role) ? (
-            <>
-              <option value="inactive">Inactive</option>
-              <option value="all">All</option>
-            </>
-          ) : null}
-        </select>
-        <Button size="sm" type="submit" variant="outline">
-          Apply
-        </Button>
-      </form>
+      <CarrierSearchFilters
+        canManage={canManage}
+        initialQuery={filters.query}
+        initialState={filters.state}
+      />
       <OperationsPanel aria-label="Carriers workspace">
         {result.items.length ? (
-          <CarrierManagement canManage={canManageCarriers(user.role)} items={result.items} />
+          <CarrierManagement canManage={canManage} items={result.items} />
         ) : (
           <EmptyState
             title="No Carriers available"

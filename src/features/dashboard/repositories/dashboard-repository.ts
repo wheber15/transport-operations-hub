@@ -32,6 +32,8 @@ const todayOrderSelect = {
     orderBy: { deliveryNumber: "asc" },
     take: 1,
     select: {
+      id: true,
+      deliveryNumber: true,
       shipment: { select: { shipmentNumber: true } },
       pallets: { where: { deletedAt: null }, select: { actualWeight: true } },
     },
@@ -48,8 +50,10 @@ function toDashboardOrder(order: TodayOrderRecord): DashboardOrder {
     grossWeightKg
   );
   return {
-    id: order.id,
-    orderNumber: order.orderNumber,
+    salesOrderId: order.id,
+    salesOrderNumber: order.orderNumber,
+    deliveryId: delivery?.id ?? null,
+    deliveryNumber: delivery?.deliveryNumber ?? null,
     customerName: order.customer.deletedAt === null ? order.customer.name : null,
     shipToNumber: order.shipToNumber,
     routeCode: order.routeCode,
@@ -57,15 +61,16 @@ function toDashboardOrder(order: TodayOrderRecord): DashboardOrder {
     estimatedPalletCount: estimatePalletCount(grossWeightKg),
     actualPalletCount: pallet.palletCount || null,
     shipmentNumber: delivery?.shipment?.shipmentNumber ?? null,
-    status: pallet.status === "captured" ? "captured" : "awaiting",
+    assignmentStatus: delivery?.shipment?.shipmentNumber ? "assigned" : "unassigned",
+    palletDataStatus: pallet.status === "captured" ? "captured" : "awaiting",
     weightStatus: pallet.weightStatus,
   };
 }
 
 export function getRemainingTodayOrder(order: DashboardOrder): DashboardRemainingOrder | null {
   const reasons: DashboardRemainingOrder["reason"][] = [];
-  if (order.status === "awaiting") reasons.push("Awaiting pallet data");
-  if (!order.shipmentNumber) reasons.push("Not assigned");
+  if (order.palletDataStatus === "awaiting") reasons.push("Awaiting pallet data");
+  if (order.assignmentStatus === "unassigned") reasons.push("Not assigned");
   if (order.weightStatus === "over") reasons.push("Over SAP weight");
   if (order.weightStatus === "under") reasons.push("Under SAP weight");
   if (!order.routeCode || !order.shipToNumber || !order.grossWeightKg)
@@ -156,7 +161,7 @@ export async function getDashboardData(range: BusinessDateRange): Promise<Dashbo
       .sort(
         (left, right) =>
           left.reason.localeCompare(right.reason) ||
-          left.orderNumber.localeCompare(right.orderNumber)
+          left.salesOrderNumber.localeCompare(right.salesOrderNumber)
       )
       .slice(0, dashboardListLimit),
     recentShipments: recentShipments.map((shipment) => ({

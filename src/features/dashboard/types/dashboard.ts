@@ -1,14 +1,17 @@
 export type DashboardOrder = {
   actualPalletCount: number | null;
+  assignmentStatus: "assigned" | "unassigned";
   customerName: string | null;
+  deliveryId: string | null;
+  deliveryNumber: string | null;
   estimatedPalletCount: number | null;
   grossWeightKg: string | null;
-  id: string;
-  orderNumber: string;
+  palletDataStatus: "awaiting" | "captured";
   routeCode: string | null;
+  salesOrderId: string;
+  salesOrderNumber: string;
   shipmentNumber: string | null;
   shipToNumber: string | null;
-  status: "awaiting" | "captured";
   weightStatus: "awaiting" | "under" | "exact" | "over" | "unavailable";
 };
 

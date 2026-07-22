@@ -7,6 +7,10 @@ import { OperationsPanel } from "@/components/shared/operations/operations-panel
 import { SectionHeader } from "@/components/shared/operations/section-header";
 import type { DashboardData, DashboardOrder } from "@/features/dashboard/types/dashboard";
 import { formatSapWeight } from "@/features/data-management/domain/preview";
+import {
+  getDashboardDeliveryHref,
+  getDashboardDeliveryLabel,
+} from "@/features/dashboard/lib/delivery-navigation";
 
 const todayHref = "/orders?datePreset=today";
 const dashboardMetrics = [
@@ -17,7 +21,7 @@ const dashboardMetrics = [
 ] as const;
 
 function statusLabel(order: DashboardOrder) {
-  if (order.status === "awaiting") return "Awaiting pallet data";
+  if (order.palletDataStatus === "awaiting") return "Awaiting pallet data";
   return order.weightStatus === "exact"
     ? "Exact SAP weight"
     : order.weightStatus === "under"
@@ -25,6 +29,18 @@ function statusLabel(order: DashboardOrder) {
       : order.weightStatus === "over"
         ? "Over SAP weight"
         : "Captured";
+}
+
+function DeliveryIdentifier({ order }: { order: DashboardOrder }) {
+  const href = getDashboardDeliveryHref(order);
+  const label = getDashboardDeliveryLabel(order.deliveryNumber);
+  return href ? (
+    <Link className="text-primary font-medium hover:underline" href={href}>
+      {label}
+    </Link>
+  ) : (
+    <span className="text-muted-foreground font-medium">{label}</span>
+  );
 }
 
 function StatusBadge({ children }: { children: React.ReactNode }) {
@@ -92,29 +108,29 @@ export function DashboardWorkspace({ data }: { data: DashboardData }) {
           {data.todayOrders.length ? (
             <ul className="divide-border/80 divide-y">
               {data.todayOrders.map((order) => (
-                <li className="px-5 py-3.5" key={order.id}>
-                  <Link
-                    className="text-foreground hover:text-primary flex items-start justify-between gap-3"
-                    href={`/orders/${order.id}`}
-                  >
+                <li className="px-5 py-3.5" key={order.salesOrderId}>
+                  <div className="flex items-start justify-between gap-3">
                     <span>
-                      <span className="font-medium">{order.orderNumber}</span>
+                      <DeliveryIdentifier order={order} />
                       <span className="text-muted-foreground mt-1 block text-sm">
                         {order.customerName ?? "Customer unavailable"} ·{" "}
                         {order.shipToNumber ?? "Ship-To unavailable"} ·{" "}
                         {order.routeCode ?? "Route unavailable"}
                       </span>
                       <span className="text-muted-foreground mt-1 block text-xs">
+                        Order {order.salesOrderNumber} ·{" "}
                         {formatSapWeight(order.grossWeightKg) ?? "Weight unavailable"} · Est.{" "}
                         {order.estimatedPalletCount ?? "—"} pallets ·{" "}
                         {order.actualPalletCount ?? "Awaiting"} actual
                       </span>
                     </span>
                     <span className="flex max-w-32 flex-wrap justify-end gap-1">
-                      <StatusBadge>{order.shipmentNumber ? "Assigned" : "Unassigned"}</StatusBadge>
+                      <StatusBadge>
+                        {order.assignmentStatus === "assigned" ? "Assigned" : "Unassigned"}
+                      </StatusBadge>
                       <StatusBadge>{statusLabel(order)}</StatusBadge>
                     </span>
-                  </Link>
+                  </div>
                 </li>
               ))}
             </ul>
@@ -147,15 +163,15 @@ export function DashboardWorkspace({ data }: { data: DashboardData }) {
           {data.remainingToday.length ? (
             <ul className="divide-border/80 divide-y">
               {data.remainingToday.map((order) => (
-                <li className="px-5 py-3.5" key={order.id}>
-                  <Link
-                    className="flex items-center justify-between gap-3"
-                    href={`/orders/${order.id}`}
-                  >
+                <li className="px-5 py-3.5" key={order.salesOrderId}>
+                  <div className="flex items-center justify-between gap-3">
                     <span>
-                      <span className="text-foreground font-medium">{order.orderNumber}</span>
+                      <DeliveryIdentifier order={order} />
                       <span className="text-muted-foreground mt-1 block text-sm">
                         {order.customerName ?? "Customer unavailable"}
+                      </span>
+                      <span className="text-muted-foreground mt-1 block text-xs">
+                        Order {order.salesOrderNumber}
                       </span>
                     </span>
                     <span className="text-right">
@@ -167,7 +183,7 @@ export function DashboardWorkspace({ data }: { data: DashboardData }) {
                         </span>
                       ) : null}
                     </span>
-                  </Link>
+                  </div>
                 </li>
               ))}
             </ul>

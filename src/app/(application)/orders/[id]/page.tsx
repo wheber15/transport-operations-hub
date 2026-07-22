@@ -88,7 +88,11 @@ export default async function OrderDetailPage({ params }: OrderDetailPageProps) 
             {order.deliveries.length > 0 ? (
               <ul className="divide-border/80 divide-y">
                 {order.deliveries.map((delivery) => (
-                  <li className="px-5 py-4 text-sm font-medium" key={delivery.id}>
+                  <li
+                    className="px-5 py-4 text-sm font-medium"
+                    id={`delivery-${delivery.id}`}
+                    key={delivery.id}
+                  >
                     {delivery.deliveryNumber}
                   </li>
                 ))}

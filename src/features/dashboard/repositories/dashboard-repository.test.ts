@@ -5,8 +5,10 @@ vi.mock("@/server/db/prisma", () => ({ prisma: {} }));
 import { getRemainingTodayOrder } from "./dashboard-repository";
 
 const base = {
-  id: "1",
-  orderNumber: "1046227772",
+  salesOrderId: "1",
+  salesOrderNumber: "1046227772",
+  deliveryId: "delivery-1",
+  deliveryNumber: "9108325191",
   customerName: "Customer",
   shipToNumber: "0001",
   routeCode: "IE1211",
@@ -14,7 +16,8 @@ const base = {
   estimatedPalletCount: 2,
   actualPalletCount: 3,
   shipmentNumber: "SHP-1",
-  status: "captured" as const,
+  assignmentStatus: "assigned" as const,
+  palletDataStatus: "captured" as const,
   weightStatus: "exact" as const,
 };
 
@@ -26,8 +29,8 @@ describe("dashboard remaining-today rule", () => {
     expect(
       getRemainingTodayOrder({
         ...base,
-        status: "awaiting",
-        shipmentNumber: null,
+        palletDataStatus: "awaiting",
+        assignmentStatus: "unassigned",
         weightStatus: "awaiting",
       })
     ).toEqual(expect.objectContaining({ reason: "Awaiting pallet data", additionalIssueCount: 1 }));

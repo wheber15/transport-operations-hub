@@ -63,6 +63,7 @@ function asForm(carrier: Carrier): Form {
     collectionEndTime: carrier.collectionEndTime ?? "",
     dailyTrailerLimit: carrier.dailyTrailerLimit?.toString() ?? "",
     notes: carrier.notes ?? "",
+    active: carrier.active,
   };
 }
 

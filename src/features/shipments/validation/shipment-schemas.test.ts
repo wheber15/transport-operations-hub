@@ -4,6 +4,7 @@ import {
   shipmentCloseSchema,
   shipmentCreateSchema,
   shipmentMovementSchema,
+  shipmentSearchFiltersSchema,
   shipmentUpdateSchema,
 } from "./shipment-schemas";
 
@@ -48,5 +49,14 @@ describe("shipment validation", () => {
         driverOutAt: null,
       })
     ).toThrow();
+  });
+
+  it("accepts Tomorrow and safely defaults an invalid dispatch date preset", () => {
+    expect(shipmentSearchFiltersSchema.parse({ datePreset: "tomorrow" }).datePreset).toBe(
+      "tomorrow"
+    );
+    expect(shipmentSearchFiltersSchema.parse({ datePreset: "not-a-preset" }).datePreset).toBe(
+      "all"
+    );
   });
 });

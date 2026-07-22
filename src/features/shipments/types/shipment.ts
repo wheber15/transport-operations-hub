@@ -16,7 +16,7 @@ export type ShipmentSearchFilters = {
   page: number;
   pageSize: number;
   query?: string;
-  datePreset: "today" | "yesterday" | "thisWeek" | "all" | "custom";
+  datePreset: "today" | "tomorrow" | "yesterday" | "thisWeek" | "all" | "custom";
   dispatchFrom?: string;
   dispatchTo?: string;
   carrierId?: string;

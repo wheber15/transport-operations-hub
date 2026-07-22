@@ -87,6 +87,7 @@ export default async function ShipmentsPage({ searchParams }: ShipmentsPageProps
         {(
           [
             ["today", "Today"],
+            ["tomorrow", "Tomorrow"],
             ["yesterday", "Yesterday"],
             ["thisWeek", "This Week"],
             ["all", "All"],

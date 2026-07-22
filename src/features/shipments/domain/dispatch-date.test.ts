@@ -15,6 +15,24 @@ describe("Shipment dispatch-date presets", () => {
     });
   });
 
+  it("uses the next Ireland business date for Tomorrow across calendar boundaries", () => {
+    expect(resolveDispatchDateScope("tomorrow", new Date("2026-01-31T12:00:00.000Z"))).toEqual({
+      from: "2026-02-01",
+      to: "2026-02-01",
+    });
+    expect(resolveDispatchDateScope("tomorrow", new Date("2026-12-31T12:00:00.000Z"))).toEqual({
+      from: "2027-01-01",
+      to: "2027-01-01",
+    });
+  });
+
+  it("uses the Ireland calendar date through the daylight-saving boundary", () => {
+    expect(resolveDispatchDateScope("tomorrow", new Date("2026-03-29T23:30:00.000Z"))).toEqual({
+      from: "2026-03-31",
+      to: "2026-03-31",
+    });
+  });
+
   it("uses an inclusive Monday through Sunday scope for This Week", () => {
     expect(resolveDispatchDateScope("thisWeek", new Date("2026-07-21T12:00:00.000Z"))).toEqual({
       from: "2026-07-20",

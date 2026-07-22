@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { updateShipmentSearchParams } from "./shipment-url-state";
+import { shipmentHref, updateShipmentSearchParams } from "./shipment-url-state";
 
 describe("Shipment workspace URL state", () => {
   it("preserves active filters when the live search changes", () => {
@@ -25,5 +25,25 @@ describe("Shipment workspace URL state", () => {
       page: "1",
     });
     expect(result.toString()).toBe("status=closed&page=1");
+  });
+
+  it("preserves compatible filters and resets pagination for Tomorrow", () => {
+    expect(
+      shipmentHref(
+        {
+          page: 4,
+          pageSize: 50,
+          query: "Dachser",
+          datePreset: "tomorrow",
+          carrierId: "11111111-1111-4111-8111-111111111111",
+          status: "open",
+          sortBy: "dispatchDate",
+          sortDirection: "desc",
+        },
+        1
+      )
+    ).toBe(
+      "/shipments?page=1&pageSize=50&sortBy=dispatchDate&sortDirection=desc&datePreset=tomorrow&q=Dachser&carrierId=11111111-1111-4111-8111-111111111111&status=open"
+    );
   });
 });

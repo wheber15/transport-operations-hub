@@ -13,12 +13,29 @@ const optionalSearchQuery = z.preprocess(
   z.string().trim().min(1).max(200).optional()
 );
 
+const shipmentDatePresetValues = [
+  "today",
+  "tomorrow",
+  "yesterday",
+  "thisWeek",
+  "all",
+  "custom",
+] as const;
+const shipmentDatePresetSchema = z.preprocess(
+  (value) =>
+    typeof value === "string" &&
+    shipmentDatePresetValues.includes(value as (typeof shipmentDatePresetValues)[number])
+      ? value
+      : undefined,
+  z.enum(shipmentDatePresetValues).default("all")
+);
+
 export const shipmentSearchFiltersSchema = z
   .object({
     query: optionalSearchQuery,
     page: z.coerce.number().int().min(1).default(1),
     pageSize: z.coerce.number().int().min(1).max(100).default(25),
-    datePreset: z.enum(["today", "yesterday", "thisWeek", "all", "custom"]).default("all"),
+    datePreset: shipmentDatePresetSchema,
     dispatchFrom: z.string().date().optional(),
     dispatchTo: z.string().date().optional(),
     carrierId: z.string().uuid().optional(),

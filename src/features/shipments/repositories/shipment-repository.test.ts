@@ -212,6 +212,28 @@ describe("shipment repository lifecycle", () => {
     });
   });
 
+  it("combines a Tomorrow dispatch scope with Carrier and search filters", () => {
+    const where = buildShipmentsWhere({
+      ...defaultListFilters,
+      query: "Dachser",
+      carrierId,
+      datePreset: "tomorrow",
+      dispatchFrom: "2026-07-24",
+      dispatchTo: "2026-07-24",
+    });
+
+    expect(where).toMatchObject({
+      dispatchDate: {
+        gte: new Date("2026-07-24T00:00:00.000Z"),
+        lte: new Date("2026-07-24T00:00:00.000Z"),
+      },
+      AND: expect.arrayContaining([{ carrierId }]),
+    });
+    expect(where.OR).toEqual(
+      expect.arrayContaining([{ carrier: { name: { contains: "Dachser", mode: "insensitive" } } }])
+    );
+  });
+
   it("loads pre-migration Shipments with null movement timestamps as awaiting driver", async () => {
     prismaMock.$transaction.mockResolvedValue([[shipmentWithNoMovementTimes], 1]);
 

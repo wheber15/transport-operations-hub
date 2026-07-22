@@ -1,6 +1,6 @@
 import { irelandBusinessDate } from "@/lib/business-date";
 
-export type DispatchDatePreset = "today" | "yesterday" | "thisWeek" | "all" | "custom";
+export type DispatchDatePreset = "today" | "tomorrow" | "yesterday" | "thisWeek" | "all" | "custom";
 
 function addDays(value: string, days: number) {
   const date = new Date(`${value}T12:00:00.000Z`);
@@ -16,6 +16,7 @@ export function resolveDispatchDateScope(
   const today = irelandBusinessDate(referenceDate);
   if (preset === "all") return {};
   if (preset === "today") return { from: today, to: today };
+  if (preset === "tomorrow") return { from: addDays(today, 1), to: addDays(today, 1) };
   if (preset === "yesterday") return { from: addDays(today, -1), to: addDays(today, -1) };
   if (preset === "thisWeek") {
     const weekday = new Date(`${today}T12:00:00.000Z`).getUTCDay();

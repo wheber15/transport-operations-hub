@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
+import { formatCollectionWindow } from "@/features/carriers/lib/collection-window";
 
 type Carrier = {
   id: string;
@@ -12,7 +13,8 @@ type Carrier = {
   contactName: string | null;
   email: string | null;
   phone: string | null;
-  collectionTime: string | null;
+  collectionStartTime: string | null;
+  collectionEndTime: string | null;
   dailyTrailerLimit: number | null;
   notes: string | null;
 };
@@ -22,7 +24,8 @@ type Form = {
   contactName: string;
   email: string;
   phone: string;
-  collectionTime: string;
+  collectionStartTime: string;
+  collectionEndTime: string;
   dailyTrailerLimit: string;
   notes: string;
   active: boolean;
@@ -33,7 +36,8 @@ const blank: Form = {
   contactName: "",
   email: "",
   phone: "",
-  collectionTime: "",
+  collectionStartTime: "",
+  collectionEndTime: "",
   dailyTrailerLimit: "",
   notes: "",
   active: true,
@@ -44,7 +48,8 @@ const fields: Array<[keyof Form, string]> = [
   ["contactName", "Contact Name"],
   ["email", "Email"],
   ["phone", "Phone"],
-  ["collectionTime", "Collection Time"],
+  ["collectionStartTime", "Collection Start"],
+  ["collectionEndTime", "Collection End"],
   ["dailyTrailerLimit", "Daily Trailer Limit"],
 ];
 function asForm(carrier: Carrier): Form {
@@ -53,7 +58,8 @@ function asForm(carrier: Carrier): Form {
     contactName: carrier.contactName ?? "",
     email: carrier.email ?? "",
     phone: carrier.phone ?? "",
-    collectionTime: carrier.collectionTime ?? "",
+    collectionStartTime: carrier.collectionStartTime ?? "",
+    collectionEndTime: carrier.collectionEndTime ?? "",
     dailyTrailerLimit: carrier.dailyTrailerLimit?.toString() ?? "",
     notes: carrier.notes ?? "",
   };
@@ -170,7 +176,7 @@ export function CarrierManagement({ items, canManage }: { items: Carrier[]; canM
                   "Contact",
                   "Email",
                   "Phone",
-                  "Collection Time",
+                  "Collection Window",
                   "Daily Trailer Limit",
                   "Status",
                   "Actions",
@@ -189,7 +195,9 @@ export function CarrierManagement({ items, canManage }: { items: Carrier[]; canM
                   <td className="p-3 text-sm">{carrier.contactName ?? "—"}</td>
                   <td className="p-3 text-sm">{carrier.email ?? "—"}</td>
                   <td className="p-3 text-sm">{carrier.phone ?? "—"}</td>
-                  <td className="p-3 text-sm">{carrier.collectionTime ?? "—"}</td>
+                  <td className="p-3 text-sm">
+                    {formatCollectionWindow(carrier.collectionStartTime, carrier.collectionEndTime)}
+                  </td>
                   <td className="p-3 text-sm">{carrier.dailyTrailerLimit ?? "—"}</td>
                   <td className="p-3 text-sm">{carrier.active ? "Active" : "Inactive"}</td>
                   <td className="flex gap-2 p-3">

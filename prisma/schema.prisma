@@ -379,16 +379,18 @@ enum ShipmentStatus {
 }
 
 model Carrier {
-  id                String  @id @default(uuid()) @db.Uuid
-  carrierNumber     String  @unique
-  name              String
-  active            Boolean @default(true)
-  contactName       String?
-  email             String?
-  phone             String?
-  collectionTime    String?
-  dailyTrailerLimit Int?
-  notes             String?
+  id                  String  @id @default(uuid()) @db.Uuid
+  carrierNumber       String  @unique
+  name                String
+  active              Boolean @default(true)
+  contactName         String?
+  email               String?
+  phone               String?
+  collectionTime      String?
+  collectionStartTime String?
+  collectionEndTime   String?
+  dailyTrailerLimit   Int?
+  notes               String?
 
   createdAt   DateTime  @default(now()) @db.Timestamptz(3)
   updatedAt   DateTime  @updatedAt @db.Timestamptz(3)

@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
+import { formatCarrierSelectorLabel } from "@/features/carriers/lib/collection-window";
 
 type FormFields = "shipmentNumber" | "dispatchDate" | "carrierId";
 type FormState = Record<FormFields | "notes", string>;
@@ -19,7 +20,8 @@ export function CreateShipmentDialog({
     id: string;
     name: string;
     carrierNumber: string;
-    collectionTime: string | null;
+    collectionStartTime: string | null;
+    collectionEndTime: string | null;
     dailyTrailerLimit: number | null;
   }>;
 }) {
@@ -156,7 +158,7 @@ export function CreateShipmentDialog({
                   <option value="">Select carrier</option>
                   {carriers.map((carrier) => (
                     <option key={carrier.id} value={carrier.id}>
-                      {carrier.name} — {carrier.carrierNumber}
+                      {formatCarrierSelectorLabel(carrier)}
                     </option>
                   ))}
                 </select>

@@ -35,7 +35,7 @@ export default async function CarriersPage({
         {[
           ["Active Carriers", result.summary.active],
           ["Inactive Carriers", result.summary.inactive],
-          ["With collection times", result.summary.collectionTimes],
+          ["With collection windows", result.summary.collectionTimes],
           ["With daily trailer limits", result.summary.trailerLimits],
         ].map(([label, value]) => (
           <OperationsPanel key={String(label)}>

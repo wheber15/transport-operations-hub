@@ -32,7 +32,8 @@ const select = {
   contactName: true,
   email: true,
   phone: true,
-  collectionTime: true,
+  collectionStartTime: true,
+  collectionEndTime: true,
   dailyTrailerLimit: true,
   notes: true,
 } satisfies Prisma.CarrierSelect;
@@ -48,7 +49,7 @@ export async function carrierSummary() {
   const [active, inactive, collectionTimes, trailerLimits] = await Promise.all([
     prisma.carrier.count({ where: { deletedAt: null, active: true } }),
     prisma.carrier.count({ where: { deletedAt: null, active: false } }),
-    prisma.carrier.count({ where: { deletedAt: null, collectionTime: { not: null } } }),
+    prisma.carrier.count({ where: { deletedAt: null, collectionStartTime: { not: null } } }),
     prisma.carrier.count({ where: { deletedAt: null, dailyTrailerLimit: { not: null } } }),
   ]);
   return { active, inactive, collectionTimes, trailerLimits };

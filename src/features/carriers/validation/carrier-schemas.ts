@@ -27,11 +27,19 @@ export const carrierInputSchema = z
         .nullable()
         .optional()
     ),
-    collectionTime: z.preprocess(
+    collectionStartTime: z.preprocess(
       (value) => (typeof value === "string" && value.trim() === "" ? null : value),
       z
         .string()
-        .regex(/^([01]\d|2[0-3]):[0-5]\d$/, "Enter a valid collection time.")
+        .regex(/^([01]\d|2[0-3]):[0-5]\d$/, "Enter a valid collection start time.")
+        .nullable()
+        .optional()
+    ),
+    collectionEndTime: z.preprocess(
+      (value) => (typeof value === "string" && value.trim() === "" ? null : value),
+      z
+        .string()
+        .regex(/^([01]\d|2[0-3]):[0-5]\d$/, "Enter a valid collection end time.")
         .nullable()
         .optional()
     ),
@@ -42,7 +50,23 @@ export const carrierInputSchema = z
     notes: optionalText,
     active: z.boolean().default(true),
   })
-  .strict();
+  .strict()
+  .superRefine((value, context) => {
+    const start = value.collectionStartTime;
+    const end = value.collectionEndTime;
+    if (Boolean(start) !== Boolean(end))
+      context.addIssue({
+        code: "custom",
+        message: "Collection start and end are both required.",
+        path: [start ? "collectionEndTime" : "collectionStartTime"],
+      });
+    if (start && end && end <= start)
+      context.addIssue({
+        code: "custom",
+        message: "Collection end must be later than start.",
+        path: ["collectionEndTime"],
+      });
+  });
 
 export const carrierFiltersSchema = z.object({
   query: z.string().trim().max(200).optional(),

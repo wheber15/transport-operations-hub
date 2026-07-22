@@ -5,6 +5,7 @@
 - Carrier Number is unique and preserved as a string, including leading zeros.
 - Only active Carriers are available for new Shipments; inactive Carriers remain linked to historical Shipments.
 - Collection Time and Daily Trailer Limit are informational and do not block Shipment planning.
+- Collection windows are Europe/Dublin wall-clock values with no UTC conversion. New or edited records require both start and end values, or neither; start must be earlier than end. Legacy `collectionTime` is retained temporarily, copied into `collectionStartTime`, and leaves `collectionEndTime` intentionally null. No end value is inferred; incomplete migrated records remain readable and must be completed or cleared before editing. Trailer limits remain informational.
 - Deactivation does not delete Carrier or Shipment history.
 
 ## 1. Purpose

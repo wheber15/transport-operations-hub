@@ -9,6 +9,7 @@ export const deliveryAssignmentRoles = [roleNames.administrator, roleNames.plann
 
 export const deliveryImportRoles = deliveryAssignmentRoles;
 export const dataImportRoles = deliveryAssignmentRoles;
+export const carrierExportRoles = deliveryAssignmentRoles;
 
 export function canManageDeliveryAssignments(role: string | null) {
   return deliveryAssignmentRoles.includes(role as (typeof deliveryAssignmentRoles)[number]);
@@ -23,5 +24,13 @@ export function canManageDataImports(role: string | null) {
 }
 
 export function canManageCarriers(role: string | null) {
+  return role === roleNames.administrator;
+}
+
+export function canManageCarrierExports(role: string | null) {
+  return carrierExportRoles.includes(role as (typeof carrierExportRoles)[number]);
+}
+
+export function canMarkCarrierExportsSent(role: string | null) {
   return role === roleNames.administrator;
 }

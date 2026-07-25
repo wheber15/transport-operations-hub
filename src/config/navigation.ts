@@ -4,6 +4,8 @@ import {
   ChartColumn,
   ClipboardList,
   Database,
+  FileBarChart,
+  FileSpreadsheet,
   LayoutDashboard,
   Settings,
   Truck,
@@ -48,6 +50,18 @@ export const primaryNavigation: readonly NavigationItem[] = [
     href: "/carriers",
     icon: TruckIcon,
     label: "Carriers",
+    available: true,
+  },
+  {
+    href: "/reports",
+    icon: FileBarChart,
+    label: "Reports",
+    available: true,
+  },
+  {
+    href: "/carrier-exports",
+    icon: FileSpreadsheet,
+    label: "Carrier Exports",
     available: true,
   },
   {

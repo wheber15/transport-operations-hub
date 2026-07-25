@@ -4,6 +4,7 @@ import { ZodError } from "zod";
 import { getCurrentUser } from "@/features/auth/application/session";
 import {
   OrderAdministrationForbiddenError,
+  OrderExportFieldsUnavailableError,
   OrderNotFoundError,
   deleteOrder,
   getOrderById,
@@ -21,6 +22,18 @@ function mutationErrorResponse(error: unknown) {
     return NextResponse.json(
       { error: { code: "ORDER_NOT_FOUND", message: "Order not found or no longer active." } },
       { status: 404 }
+    );
+  }
+  if (error instanceof OrderExportFieldsUnavailableError) {
+    return NextResponse.json(
+      {
+        error: {
+          code: "ORDER_EXPORT_FIELDS_UNAVAILABLE",
+          message:
+            "Purchase Order Number is unavailable until the pending data migration is applied.",
+        },
+      },
+      { status: 409 }
     );
   }
   if (error instanceof ZodError || error instanceof SyntaxError) {

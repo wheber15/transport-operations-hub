@@ -15,6 +15,7 @@ import {
   orderAdminUpdateSchema,
 } from "@/features/orders/validation/order-schemas";
 import { resolveGoodsIssueDateScope } from "@/features/orders/domain/goods-issue-date";
+import { areOrderExportFieldsAvailable } from "@/features/orders/lib/order-export-field-gate";
 
 export class OrderNotFoundError extends Error {
   constructor() {
@@ -23,6 +24,7 @@ export class OrderNotFoundError extends Error {
 }
 export class OrderRecordStateForbiddenError extends Error {}
 export class OrderAdministrationForbiddenError extends Error {}
+export class OrderExportFieldsUnavailableError extends Error {}
 
 function requireAdministrator(actor: { id: string; role: string | null }) {
   if (actor.role !== "Administrator") throw new OrderAdministrationForbiddenError();
@@ -106,11 +108,11 @@ export async function updateOrder(
 ) {
   requireAdministrator(actor);
   const orderId = orderIdSchema.parse(id);
-  const updated = await updateActiveOrderFromRepository(
-    actor.id,
-    orderId,
-    orderAdminUpdateSchema.parse(input)
-  );
+  const parsed = orderAdminUpdateSchema.parse(input);
+  if (parsed.purchaseOrderNumber !== undefined && !areOrderExportFieldsAvailable()) {
+    throw new OrderExportFieldsUnavailableError();
+  }
+  const updated = await updateActiveOrderFromRepository(actor.id, orderId, parsed);
   if (!updated) throw new OrderNotFoundError();
   return updated;
 }

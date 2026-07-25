@@ -90,6 +90,7 @@ export const orderAdminUpdateSchema = z
     routeCode: optionalManualText,
     shippingPoint: optionalManualText,
     grossWeightKg: positiveDecimal,
+    purchaseOrderNumber: optionalManualText,
   })
   .strict()
   .refine((data) => Object.values(data).some((value) => value !== undefined), {

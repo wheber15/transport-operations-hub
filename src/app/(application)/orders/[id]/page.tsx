@@ -5,14 +5,18 @@ import { notFound } from "next/navigation";
 import { EmptyState } from "@/components/shared/operations/empty-state";
 import { OperationsPanel } from "@/components/shared/operations/operations-panel";
 import { Button } from "@/components/ui/button";
+import { requireAuthenticatedUser } from "@/features/auth/application/session";
 import { OrderNotFoundError, getOrderById } from "@/features/orders/application/order-service";
+import { PurchaseOrderNumberEditor } from "@/features/orders/components/purchase-order-number-editor";
 import { formatAuditTimestamp, formatBusinessDate } from "@/features/orders/domain/date-formatting";
+import { areOrderExportFieldsAvailable } from "@/features/orders/lib/order-export-field-gate";
 
 type OrderDetailPageProps = {
   params: Promise<{ id: string }>;
 };
 
 export default async function OrderDetailPage({ params }: OrderDetailPageProps) {
+  const user = await requireAuthenticatedUser();
   const { id } = await params;
   let order;
 
@@ -78,6 +82,18 @@ export default async function OrderDetailPage({ params }: OrderDetailPageProps) 
                   {formatBusinessDate(order.goodsIssueDate)}
                 </dd>
               </div>
+              {areOrderExportFieldsAvailable() ? (
+                <div className="grid gap-1 px-5 py-4 sm:grid-cols-2 sm:gap-4">
+                  <dt className="text-muted-foreground text-sm">Purchase Order Number</dt>
+                  <dd>
+                    <PurchaseOrderNumberEditor
+                      canEdit={user.role === "Administrator"}
+                      orderId={order.id}
+                      purchaseOrderNumber={order.purchaseOrderNumber}
+                    />
+                  </dd>
+                </div>
+              ) : null}
             </dl>
           </OperationsPanel>
 
@@ -89,11 +105,59 @@ export default async function OrderDetailPage({ params }: OrderDetailPageProps) 
               <ul className="divide-border/80 divide-y">
                 {order.deliveries.map((delivery) => (
                   <li
-                    className="px-5 py-4 text-sm font-medium"
+                    className="px-5 py-4 text-sm"
                     id={`delivery-${delivery.id}`}
                     key={delivery.id}
                   >
-                    {delivery.deliveryNumber}
+                    <Link
+                      className="hover:text-primary font-medium underline-offset-4 hover:underline"
+                      href={`/deliveries/${delivery.id}`}
+                    >
+                      {delivery.deliveryNumber}
+                    </Link>
+                    <section
+                      aria-label={`Linked Orders for Delivery ${delivery.deliveryNumber}`}
+                      className="mt-3"
+                    >
+                      <h3 className="text-muted-foreground text-xs font-medium tracking-wide uppercase">
+                        Linked Orders
+                      </h3>
+                      <ul className="mt-2 space-y-2">
+                        {delivery.linkedOrders.map((linkedOrder) => (
+                          <li
+                            className="border-border/70 bg-muted/20 flex flex-wrap items-center gap-x-2 gap-y-1 rounded-md border px-3 py-2 text-sm"
+                            key={linkedOrder.orderNumber}
+                          >
+                            <span className="font-medium">{linkedOrder.orderNumber}</span>
+                            {linkedOrder.isPrimary ? (
+                              <span className="bg-primary/10 text-primary rounded px-1.5 py-0.5 text-xs font-medium">
+                                Primary Order
+                              </span>
+                            ) : null}
+                            <span className="text-muted-foreground">
+                              PO: {linkedOrder.purchaseOrderNumber ?? "Not set"}
+                            </span>
+                            <span className="text-muted-foreground">
+                              SAP gross weight:{" "}
+                              {linkedOrder.grossWeightKg
+                                ? `${linkedOrder.grossWeightKg} kg`
+                                : "Not set"}
+                            </span>
+                            <span className="text-muted-foreground">
+                              Goods Issue: {formatBusinessDate(linkedOrder.goodsIssueDate)}
+                            </span>
+                            <span className="text-muted-foreground">
+                              Ship-To: {linkedOrder.shipToNumber ?? "Not set"}
+                            </span>
+                            {linkedOrder.deletedAt ? (
+                              <span className="text-destructive text-xs font-medium">Deleted</span>
+                            ) : (
+                              <span className="text-muted-foreground text-xs">Active</span>
+                            )}
+                          </li>
+                        ))}
+                      </ul>
+                    </section>
                   </li>
                 ))}
               </ul>

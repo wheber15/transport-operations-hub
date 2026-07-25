@@ -15,6 +15,7 @@ vi.mock("@/features/orders/infrastructure/order-repository", () => repository);
 
 import {
   OrderAdministrationForbiddenError,
+  OrderExportFieldsUnavailableError,
   OrderNotFoundError,
   deleteOrder,
   restoreOrder,
@@ -26,7 +27,10 @@ const planner = { id: "22222222-2222-4222-8222-222222222222", role: "Planner" };
 const orderId = "33333333-3333-4333-8333-333333333333";
 
 describe("Order administration service", () => {
-  beforeEach(() => vi.clearAllMocks());
+  beforeEach(() => {
+    vi.clearAllMocks();
+    vi.unstubAllEnvs();
+  });
 
   it("allows an Administrator to update only validated operational fields", async () => {
     repository.updateActiveOrder.mockResolvedValue({ id: orderId });
@@ -42,6 +46,39 @@ describe("Order administration service", () => {
 
   it("rejects calculated or unsupported Order fields", async () => {
     await expect(updateOrder(administrator, orderId, { actualPalletCount: 3 })).rejects.toThrow();
+  });
+
+  it("keeps manual Purchase Order Numbers migration-gated and preserves their text formatting", async () => {
+    repository.updateActiveOrder.mockResolvedValue({ id: orderId });
+    await expect(
+      updateOrder(administrator, orderId, { purchaseOrderNumber: "  PO / A-001  " })
+    ).rejects.toBeInstanceOf(OrderExportFieldsUnavailableError);
+    expect(repository.updateActiveOrder).not.toHaveBeenCalled();
+
+    vi.stubEnv("ORDER_EXPORT_FIELDS_AVAILABLE", "true");
+    await expect(
+      updateOrder(administrator, orderId, { purchaseOrderNumber: "  PO / A-001  " })
+    ).resolves.toEqual({ id: orderId });
+    expect(repository.updateActiveOrder).toHaveBeenCalledWith(
+      administrator.id,
+      orderId,
+      expect.objectContaining({ purchaseOrderNumber: "PO / A-001" })
+    );
+  });
+
+  it("allows an Administrator to explicitly remove an optional Purchase Order Number", async () => {
+    vi.stubEnv("ORDER_EXPORT_FIELDS_AVAILABLE", "true");
+    repository.updateActiveOrder.mockResolvedValue({ id: orderId });
+
+    await expect(
+      updateOrder(administrator, orderId, { purchaseOrderNumber: null })
+    ).resolves.toEqual({ id: orderId });
+
+    expect(repository.updateActiveOrder).toHaveBeenCalledWith(
+      administrator.id,
+      orderId,
+      expect.objectContaining({ purchaseOrderNumber: null })
+    );
   });
 
   it("forbids planner mutations before repository access", async () => {

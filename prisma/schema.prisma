@@ -29,45 +29,51 @@ model User {
   createdBy User? @relation("UserCreatedUsers", fields: [createdById], references: [id], onDelete: SetNull)
   updatedBy User? @relation("UserUpdatedUsers", fields: [updatedById], references: [id], onDelete: SetNull)
 
-  createdUsers          User[]                @relation("UserCreatedUsers")
-  updatedUsers          User[]                @relation("UserUpdatedUsers")
-  createdRoles          Role[]                @relation("UserCreatedRoles")
-  updatedRoles          Role[]                @relation("UserUpdatedRoles")
-  createdCustomers      Customer[]            @relation("UserCreatedCustomers")
-  updatedCustomers      Customer[]            @relation("UserUpdatedCustomers")
-  createdSalesReps      SalesRep[]            @relation("UserCreatedSalesReps")
-  updatedSalesReps      SalesRep[]            @relation("UserUpdatedSalesReps")
-  createdOrders         Order[]               @relation("UserCreatedOrders")
-  updatedOrders         Order[]               @relation("UserUpdatedOrders")
-  createdDeliveries     Delivery[]            @relation("UserCreatedDeliveries")
-  updatedDeliveries     Delivery[]            @relation("UserUpdatedDeliveries")
-  createdPallets        Pallet[]              @relation("UserCreatedPallets")
-  updatedPallets        Pallet[]              @relation("UserUpdatedPallets")
-  countedDeliveries     Delivery[]            @relation("DeliveryPalletCountedBy")
-  createdSchedules      OperationalSchedule[] @relation("UserCreatedOperationalSchedules")
-  updatedSchedules      OperationalSchedule[] @relation("UserUpdatedOperationalSchedules")
-  uploadedImportBatches ImportBatch[]         @relation("ImportBatchUploadedBy")
-  createdImportBatches  ImportBatch[]         @relation("UserCreatedImportBatches")
-  updatedImportBatches  ImportBatch[]         @relation("UserUpdatedImportBatches")
-  createdImportRows     ImportRow[]           @relation("UserCreatedImportRows")
-  updatedImportRows     ImportRow[]           @relation("UserUpdatedImportRows")
-  createdShipments      Shipment[]            @relation("UserCreatedShipments")
-  updatedShipments      Shipment[]            @relation("UserUpdatedShipments")
-  closedShipments       Shipment[]            @relation("ShipmentClosedBy")
-  createdCarriers       Carrier[]             @relation("UserCreatedCarriers")
-  updatedCarriers       Carrier[]             @relation("UserUpdatedCarriers")
-  createdRepIssues      RepIssue[]            @relation("UserCreatedRepIssues")
-  updatedRepIssues      RepIssue[]            @relation("UserUpdatedRepIssues")
-  createdActivities     Activity[]            @relation("UserCreatedActivities")
-  updatedActivities     Activity[]            @relation("UserUpdatedActivities")
-  createdNotifications  Notification[]        @relation("UserCreatedNotifications")
-  updatedNotifications  Notification[]        @relation("UserUpdatedNotifications")
-  createdAttachments    Attachment[]          @relation("UserCreatedAttachments")
-  updatedAttachments    Attachment[]          @relation("UserUpdatedAttachments")
-  createdAppSettings    AppSetting[]          @relation("UserCreatedAppSettings")
-  updatedAppSettings    AppSetting[]          @relation("UserUpdatedAppSettings")
-  activities            Activity[]            @relation("ActivityActor")
-  notifications         Notification[]        @relation("NotificationUser")
+  createdUsers              User[]                @relation("UserCreatedUsers")
+  updatedUsers              User[]                @relation("UserUpdatedUsers")
+  createdRoles              Role[]                @relation("UserCreatedRoles")
+  updatedRoles              Role[]                @relation("UserUpdatedRoles")
+  createdCustomers          Customer[]            @relation("UserCreatedCustomers")
+  updatedCustomers          Customer[]            @relation("UserUpdatedCustomers")
+  createdSalesReps          SalesRep[]            @relation("UserCreatedSalesReps")
+  updatedSalesReps          SalesRep[]            @relation("UserUpdatedSalesReps")
+  createdOrders             Order[]               @relation("UserCreatedOrders")
+  updatedOrders             Order[]               @relation("UserUpdatedOrders")
+  createdDeliveryOrderLinks DeliveryOrderLink[]   @relation("DeliveryOrderLinkCreatedBy")
+  createdDeliveries         Delivery[]            @relation("UserCreatedDeliveries")
+  updatedDeliveries         Delivery[]            @relation("UserUpdatedDeliveries")
+  createdPallets            Pallet[]              @relation("UserCreatedPallets")
+  updatedPallets            Pallet[]              @relation("UserUpdatedPallets")
+  countedDeliveries         Delivery[]            @relation("DeliveryPalletCountedBy")
+  createdSchedules          OperationalSchedule[] @relation("UserCreatedOperationalSchedules")
+  updatedSchedules          OperationalSchedule[] @relation("UserUpdatedOperationalSchedules")
+  uploadedImportBatches     ImportBatch[]         @relation("ImportBatchUploadedBy")
+  createdImportBatches      ImportBatch[]         @relation("UserCreatedImportBatches")
+  updatedImportBatches      ImportBatch[]         @relation("UserUpdatedImportBatches")
+  acknowledgedImportBatches ImportBatch[]         @relation("ImportBatchDateMismatchAcknowledgedBy")
+  createdImportRows         ImportRow[]           @relation("UserCreatedImportRows")
+  updatedImportRows         ImportRow[]           @relation("UserUpdatedImportRows")
+  createdShipments          Shipment[]            @relation("UserCreatedShipments")
+  updatedShipments          Shipment[]            @relation("UserUpdatedShipments")
+  closedShipments           Shipment[]            @relation("ShipmentClosedBy")
+  createdCarriers           Carrier[]             @relation("UserCreatedCarriers")
+  updatedCarriers           Carrier[]             @relation("UserUpdatedCarriers")
+  createdRepIssues          RepIssue[]            @relation("UserCreatedRepIssues")
+  updatedRepIssues          RepIssue[]            @relation("UserUpdatedRepIssues")
+  createdActivities         Activity[]            @relation("UserCreatedActivities")
+  updatedActivities         Activity[]            @relation("UserUpdatedActivities")
+  createdNotifications      Notification[]        @relation("UserCreatedNotifications")
+  updatedNotifications      Notification[]        @relation("UserUpdatedNotifications")
+  createdAttachments        Attachment[]          @relation("UserCreatedAttachments")
+  updatedAttachments        Attachment[]          @relation("UserUpdatedAttachments")
+  createdAppSettings        AppSetting[]          @relation("UserCreatedAppSettings")
+  updatedAppSettings        AppSetting[]          @relation("UserUpdatedAppSettings")
+  requestedReportRuns       ReportRun[]           @relation("ReportRunRequestedBy")
+  createdReportSnapshots    ReportSnapshotRow[]   @relation("ReportSnapshotRowCreatedBy")
+  generatedCarrierExports   CarrierExportRun[]    @relation("CarrierExportGeneratedBy")
+  sentCarrierExports        CarrierExportRun[]    @relation("CarrierExportSentBy")
+  activities                Activity[]            @relation("ActivityActor")
+  notifications             Notification[]        @relation("NotificationUser")
 
   @@index([roleId])
   @@index([displayName])
@@ -176,15 +182,22 @@ model SalesRep {
 }
 
 model Order {
-  id             String    @id @default(uuid()) @db.Uuid
-  orderNumber    String    @unique
-  pickingNumber  String?
-  goodsIssueDate DateTime? @db.Date
-  shipToNumber   String?
-  routeCode      String?
-  shippingPoint  String?
-  grossWeightKg  Decimal?  @db.Decimal(12, 3)
-  customerId     String    @db.Uuid
+  id                  String    @id @default(uuid()) @db.Uuid
+  orderNumber         String    @unique
+  pickingNumber       String?
+  goodsIssueDate      DateTime? @db.Date
+  sapGoodsIssueDate   DateTime? @db.Date
+  shipToNumber        String?
+  routeCode           String?
+  shippingPoint       String?
+  grossWeightKg       Decimal?  @db.Decimal(12, 3)
+  purchaseOrderNumber String?   @db.VarChar(200)
+  shipToName2         String?   @db.VarChar(200)
+  shipToStreet        String?   @db.VarChar(200)
+  shipToCity          String?   @db.VarChar(120)
+  shipToPostalCode    String?   @db.VarChar(40)
+  shipToRegion        String?   @db.VarChar(40)
+  customerId          String    @db.Uuid
 
   createdAt   DateTime  @default(now()) @db.Timestamptz(3)
   updatedAt   DateTime  @updatedAt @db.Timestamptz(3)
@@ -192,17 +205,148 @@ model Order {
   updatedById String?   @db.Uuid
   deletedAt   DateTime? @db.Timestamptz(3)
 
-  customer   Customer   @relation(fields: [customerId], references: [id], onDelete: Restrict)
-  deliveries Delivery[]
-  createdBy  User?      @relation("UserCreatedOrders", fields: [createdById], references: [id], onDelete: SetNull)
-  updatedBy  User?      @relation("UserUpdatedOrders", fields: [updatedById], references: [id], onDelete: SetNull)
+  customer      Customer            @relation(fields: [customerId], references: [id], onDelete: Restrict)
+  deliveries    Delivery[]
+  deliveryLinks DeliveryOrderLink[]
+  createdBy     User?               @relation("UserCreatedOrders", fields: [createdById], references: [id], onDelete: SetNull)
+  updatedBy     User?               @relation("UserUpdatedOrders", fields: [updatedById], references: [id], onDelete: SetNull)
 
   @@index([customerId])
   @@index([pickingNumber])
   @@index([goodsIssueDate])
+  @@index([sapGoodsIssueDate])
   @@index([shipToNumber])
   @@index([routeCode])
   @@map("order")
+}
+
+model CarrierExportSequence {
+  id             String             @id @default(uuid()) @db.Uuid
+  carrierId      String             @db.Uuid
+  goodsIssueDate DateTime           @db.Date
+  stage          CarrierExportStage
+  lastSequence   Int                @default(0)
+  createdAt      DateTime           @default(now()) @db.Timestamptz(3)
+  updatedAt      DateTime           @updatedAt @db.Timestamptz(3)
+
+  carrier Carrier @relation(fields: [carrierId], references: [id], onDelete: Restrict)
+
+  @@unique([carrierId, goodsIssueDate, stage])
+  @@map("carrier_export_sequence")
+}
+
+model CarrierExportRun {
+  id                     String                  @id @default(uuid()) @db.Uuid
+  reference              String                  @unique
+  carrierId              String                  @db.Uuid
+  goodsIssueDate         DateTime                @db.Date
+  stage                  CarrierExportStage
+  sequence               Int
+  status                 CarrierExportStatus     @default(PENDING)
+  sentAt                 DateTime?               @db.Timestamptz(3)
+  sentById               String?                 @db.Uuid
+  baselineRunId          String?                 @db.Uuid
+  filename               String?
+  rowCount               Int                     @default(0)
+  distinctDeliveryCount  Int                     @default(0)
+  totalWeightKg          Decimal?                @db.Decimal(14, 3)
+  totalPallets           Int                     @default(0)
+  addedCount             Int                     @default(0)
+  changedCount           Int                     @default(0)
+  removedCount           Int                     @default(0)
+  unchangedCount         Int                     @default(0)
+  datasetChecksum        String
+  calculationVersion     String
+  generatedById          String?                 @db.Uuid
+  generatedByDisplayName String
+  failureCode            String?
+  failureMessage         String?
+  generatedAt            DateTime?               @db.Timestamptz(3)
+  createdAt              DateTime                @default(now()) @db.Timestamptz(3)
+  updatedAt              DateTime                @updatedAt @db.Timestamptz(3)
+  carrier                Carrier                 @relation(fields: [carrierId], references: [id], onDelete: Restrict)
+  generatedBy            User?                   @relation("CarrierExportGeneratedBy", fields: [generatedById], references: [id], onDelete: SetNull)
+  sentBy                 User?                   @relation("CarrierExportSentBy", fields: [sentById], references: [id], onDelete: SetNull)
+  baselineRun            CarrierExportRun?       @relation("CarrierExportBaseline", fields: [baselineRunId], references: [id], onDelete: Restrict)
+  derivedRuns            CarrierExportRun[]      @relation("CarrierExportBaseline")
+  rows                   CarrierExportRow[]
+  artifacts              CarrierExportArtifact[]
+
+  @@unique([carrierId, goodsIssueDate, stage, sequence])
+  @@index([carrierId, goodsIssueDate, status])
+  @@map("carrier_export_run")
+}
+
+model CarrierExportRow {
+  id                   String                            @id @default(uuid()) @db.Uuid
+  exportRunId          String                            @db.Uuid
+  rowSequence          Int
+  deliveryId           String                            @db.Uuid
+  deliveryNumber       String
+  normalizedPayload    Json
+  rowChecksum          String
+  changeClassification CarrierExportChangeClassification
+  baselineRowChecksum  String?
+  createdAt            DateTime                          @default(now()) @db.Timestamptz(3)
+  exportRun            CarrierExportRun                  @relation(fields: [exportRunId], references: [id], onDelete: Restrict)
+  delivery             Delivery                          @relation(fields: [deliveryId], references: [id], onDelete: Restrict)
+
+  @@unique([exportRunId, rowSequence])
+  @@unique([exportRunId, deliveryNumber])
+  @@map("carrier_export_row")
+}
+
+model CarrierExportArtifact {
+  id             String                      @id @default(uuid()) @db.Uuid
+  exportRunId    String                      @db.Uuid
+  format         CarrierExportArtifactFormat @default(XLSX)
+  status         CarrierExportArtifactStatus @default(PENDING)
+  storageKey     String?                     @unique
+  filename       String?
+  contentType    String?
+  byteSize       BigInt?
+  checksumSha256 String?
+  failureCode    String?
+  failureMessage String?
+  generatedAt    DateTime?                   @db.Timestamptz(3)
+  createdAt      DateTime                    @default(now()) @db.Timestamptz(3)
+  updatedAt      DateTime                    @updatedAt @db.Timestamptz(3)
+  exportRun      CarrierExportRun            @relation(fields: [exportRunId], references: [id], onDelete: Restrict)
+
+  @@unique([exportRunId, format])
+  @@map("carrier_export_artifact")
+}
+
+enum CarrierExportStage {
+  INITIAL
+  UPDATE
+  ADDITION
+}
+
+enum CarrierExportStatus {
+  PENDING
+  GENERATED
+  SENT
+  FAILED
+  CANCELLED
+}
+
+enum CarrierExportArtifactFormat {
+  XLSX
+}
+
+enum CarrierExportArtifactStatus {
+  PENDING
+  GENERATING
+  COMPLETED
+  FAILED
+}
+
+enum CarrierExportChangeClassification {
+  ADDED
+  CHANGED
+  UNCHANGED
+  REMOVED
 }
 
 model Delivery {
@@ -222,10 +366,12 @@ model Delivery {
   deletedAt   DateTime? @db.Timestamptz(3)
 
   order                Order                 @relation(fields: [orderId], references: [id], onDelete: Restrict)
+  orderLinks           DeliveryOrderLink[]
   shipment             Shipment?             @relation(fields: [shipmentId], references: [id], onDelete: SetNull)
   palletCountedBy      User?                 @relation("DeliveryPalletCountedBy", fields: [palletCountedById], references: [id], onDelete: SetNull)
   pallets              Pallet[]
   operationalSchedules OperationalSchedule[]
+  carrierExportRows    CarrierExportRow[]
   createdBy            User?                 @relation("UserCreatedDeliveries", fields: [createdById], references: [id], onDelete: SetNull)
   updatedBy            User?                 @relation("UserUpdatedDeliveries", fields: [updatedById], references: [id], onDelete: SetNull)
 
@@ -233,6 +379,30 @@ model Delivery {
   @@index([shipmentId])
   @@index([actualPalletCount])
   @@map("delivery")
+}
+
+model DeliveryOrderLink {
+  id          String                  @id @default(uuid()) @db.Uuid
+  deliveryId  String                  @db.Uuid
+  orderId     String                  @db.Uuid
+  source      DeliveryOrderLinkSource
+  createdAt   DateTime                @default(now()) @db.Timestamptz(3)
+  createdById String?                 @db.Uuid
+
+  delivery  Delivery @relation(fields: [deliveryId], references: [id], onDelete: Restrict)
+  order     Order    @relation(fields: [orderId], references: [id], onDelete: Restrict)
+  createdBy User?    @relation("DeliveryOrderLinkCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+
+  @@unique([deliveryId, orderId])
+  @@index([deliveryId])
+  @@index([orderId])
+  @@map("delivery_order_link")
+}
+
+enum DeliveryOrderLinkSource {
+  BACKFILL
+  SAP_IMPORT
+  MANUAL
 }
 
 model OperationalSchedule {
@@ -259,21 +429,25 @@ model OperationalSchedule {
 }
 
 model ImportBatch {
-  id                String    @id @default(uuid()) @db.Uuid
-  importType        String
-  status            String
-  originalFileName  String
-  selectedSheetName String?
-  selectedHeaderRow Int?
-  mapping           Json?
-  previewVersion    Int       @default(0)
-  uploadedByUserId  String    @db.Uuid
-  committedAt       DateTime? @db.Timestamptz(3)
-  totalRows         Int       @default(0)
-  validRows         Int       @default(0)
-  importedRows      Int       @default(0)
-  skippedRows       Int       @default(0)
-  failedRows        Int       @default(0)
+  id                           String    @id @default(uuid()) @db.Uuid
+  importType                   String
+  status                       String
+  originalFileName             String
+  selectedSheetName            String?
+  selectedHeaderRow            Int?
+  mapping                      Json?
+  intendedGoodsIssueDate       DateTime? @db.Date
+  dateMismatchAcknowledgedAt   DateTime? @db.Timestamptz(3)
+  dateMismatchAcknowledgedById String?   @db.Uuid
+  dateMismatchReason           String?   @db.VarChar(500)
+  previewVersion               Int       @default(0)
+  uploadedByUserId             String    @db.Uuid
+  committedAt                  DateTime? @db.Timestamptz(3)
+  totalRows                    Int       @default(0)
+  validRows                    Int       @default(0)
+  importedRows                 Int       @default(0)
+  skippedRows                  Int       @default(0)
+  failedRows                   Int       @default(0)
 
   createdAt   DateTime  @default(now()) @db.Timestamptz(3)
   updatedAt   DateTime  @updatedAt @db.Timestamptz(3)
@@ -281,12 +455,14 @@ model ImportBatch {
   updatedById String?   @db.Uuid
   deletedAt   DateTime? @db.Timestamptz(3)
 
-  uploadedBy User        @relation("ImportBatchUploadedBy", fields: [uploadedByUserId], references: [id], onDelete: Restrict)
-  createdBy  User?       @relation("UserCreatedImportBatches", fields: [createdById], references: [id], onDelete: SetNull)
-  updatedBy  User?       @relation("UserUpdatedImportBatches", fields: [updatedById], references: [id], onDelete: SetNull)
-  rows       ImportRow[]
+  uploadedBy                 User        @relation("ImportBatchUploadedBy", fields: [uploadedByUserId], references: [id], onDelete: Restrict)
+  createdBy                  User?       @relation("UserCreatedImportBatches", fields: [createdById], references: [id], onDelete: SetNull)
+  updatedBy                  User?       @relation("UserUpdatedImportBatches", fields: [updatedById], references: [id], onDelete: SetNull)
+  dateMismatchAcknowledgedBy User?       @relation("ImportBatchDateMismatchAcknowledgedBy", fields: [dateMismatchAcknowledgedById], references: [id], onDelete: SetNull)
+  rows                       ImportRow[]
 
   @@index([uploadedByUserId])
+  @@index([dateMismatchAcknowledgedById])
   @@index([status])
   @@index([createdAt])
   @@map("import_batch")
@@ -296,7 +472,7 @@ model ImportRow {
   id              String  @id @default(uuid()) @db.Uuid
   batchId         String  @db.Uuid
   sourceRowNumber Int
-  sheetName       String
+  sheetName       String  @default("Pending")
   identifier      String?
   classification  String
   message         String?
@@ -401,9 +577,11 @@ model Carrier {
   updatedById String?   @db.Uuid
   deletedAt   DateTime? @db.Timestamptz(3)
 
-  shipments Shipment[]
-  createdBy User?      @relation("UserCreatedCarriers", fields: [createdById], references: [id], onDelete: SetNull)
-  updatedBy User?      @relation("UserUpdatedCarriers", fields: [updatedById], references: [id], onDelete: SetNull)
+  shipments       Shipment[]
+  exportRuns      CarrierExportRun[]
+  exportSequences CarrierExportSequence[]
+  createdBy       User?                   @relation("UserCreatedCarriers", fields: [createdById], references: [id], onDelete: SetNull)
+  updatedBy       User?                   @relation("UserUpdatedCarriers", fields: [updatedById], references: [id], onDelete: SetNull)
 
   @@index([active, name])
   @@map("carrier")
@@ -455,6 +633,121 @@ model Activity {
   @@index([entityType, entityId])
   @@index([occurredAt])
   @@map("activity")
+}
+
+model ReportReferenceSequence {
+  id           String     @id @default(uuid()) @db.Uuid
+  reportType   ReportType
+  businessDate DateTime   @db.Date
+  lastSequence Int        @default(0)
+
+  createdAt DateTime @default(now()) @db.Timestamptz(3)
+  updatedAt DateTime @updatedAt @db.Timestamptz(3)
+
+  @@unique([reportType, businessDate])
+  @@map("report_reference_sequence")
+}
+
+model ReportRun {
+  id                     String          @id @default(uuid()) @db.Uuid
+  reportType             ReportType
+  reference              String          @unique
+  referenceSequence      Int
+  referenceBusinessDate  DateTime        @db.Date
+  scopeStartDate         DateTime        @db.Date
+  scopeEndDate           DateTime        @db.Date
+  status                 ReportRunStatus @default(PENDING)
+  filters                Json
+  kpiSnapshot            Json
+  exceptionSummary       Json
+  rowCount               Int
+  exceptionCount         Int
+  snapshotSchemaVersion  String
+  datasetVersion         String
+  datasetChecksum        String
+  templateVersion        String
+  requestedById          String?         @db.Uuid
+  requestedByDisplayName String
+  requestedByRole        String
+  generationStartedAt    DateTime?       @db.Timestamptz(3)
+  generationCompletedAt  DateTime?       @db.Timestamptz(3)
+  failureCode            String?
+  failureMessage         String?
+
+  createdAt DateTime @default(now()) @db.Timestamptz(3)
+  updatedAt DateTime @updatedAt @db.Timestamptz(3)
+
+  requestedBy  User?               @relation("ReportRunRequestedBy", fields: [requestedById], references: [id], onDelete: SetNull)
+  snapshotRows ReportSnapshotRow[]
+  artifacts    ReportArtifact[]
+
+  @@unique([reportType, referenceBusinessDate, referenceSequence], map: "report_run_reportType_referenceBusinessDate_referenceSequence_k")
+  @@index([reportType, scopeStartDate, scopeEndDate])
+  @@index([status, createdAt])
+  @@index([requestedById, createdAt])
+  @@index([createdAt])
+  @@map("report_run")
+}
+
+model ReportSnapshotRow {
+  id                String   @id @default(uuid()) @db.Uuid
+  reportRunId       String   @db.Uuid
+  rowSequence       Int
+  normalizedPayload Json
+  createdAt         DateTime @default(now()) @db.Timestamptz(3)
+  createdById       String?  @db.Uuid
+
+  reportRun ReportRun @relation(fields: [reportRunId], references: [id], onDelete: Restrict)
+  createdBy User?     @relation("ReportSnapshotRowCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+
+  @@unique([reportRunId, rowSequence])
+  @@map("report_snapshot_row")
+}
+
+model ReportArtifact {
+  id             String               @id @default(uuid()) @db.Uuid
+  reportRunId    String               @db.Uuid
+  format         ReportArtifactFormat
+  status         ReportArtifactStatus @default(PENDING)
+  storageKey     String?              @unique
+  fileName       String?
+  contentType    String?
+  byteSize       BigInt?
+  checksumSha256 String?
+  failureCode    String?
+  failureMessage String?
+  generatedAt    DateTime?            @db.Timestamptz(3)
+
+  createdAt DateTime @default(now()) @db.Timestamptz(3)
+  updatedAt DateTime @updatedAt @db.Timestamptz(3)
+
+  reportRun ReportRun @relation(fields: [reportRunId], references: [id], onDelete: Restrict)
+
+  @@unique([reportRunId, format])
+  @@map("report_artifact")
+}
+
+enum ReportType {
+  DAILY_ORDERS
+}
+
+enum ReportRunStatus {
+  PENDING
+  GENERATING
+  COMPLETED
+  FAILED
+}
+
+enum ReportArtifactFormat {
+  XLSX
+  PDF
+}
+
+enum ReportArtifactStatus {
+  PENDING
+  GENERATING
+  COMPLETED
+  FAILED
 }
 
 model Notification {

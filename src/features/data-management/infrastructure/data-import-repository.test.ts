@@ -124,6 +124,7 @@ describe("import commit repository", () => {
               proposedValues: {
                 orderNumber: "1040000001",
                 customerName: "Customer",
+                goodsIssueDate: "2024-01-01",
                 grossWeightKg: "7.000",
               },
             },
@@ -176,13 +177,20 @@ describe("import commit repository", () => {
               id: "sap-row",
               identifier: "9100000001",
               classification: "validUpdate",
-              proposedValues: { orderNumber: "1040000001", grossWeightKg: "7.000" },
+              proposedValues: {
+                orderNumber: "1040000001",
+                goodsIssueDate: "2024-01-01",
+                grossWeightKg: "7.000",
+              },
             },
           ],
         }),
         update: vi.fn().mockResolvedValue({ status: "committed", importedRows: 1, skippedRows: 0 }),
       },
-      delivery: { findFirst: vi.fn().mockResolvedValue(null), create: vi.fn().mockResolvedValue(delivery) },
+      delivery: {
+        findFirst: vi.fn().mockResolvedValue(null),
+        create: vi.fn().mockResolvedValue(delivery),
+      },
     });
     prismaMock.$transaction.mockImplementation(async (callback) => callback(tx));
     await commitBatch(batchId, actorId);
@@ -204,7 +212,11 @@ describe("import commit repository", () => {
               id: "sap-row",
               identifier: "9100000001",
               classification: "validUpdate",
-              proposedValues: { orderNumber: "1040000001", grossWeightKg: "7.000" },
+              proposedValues: {
+                orderNumber: "1040000001",
+                goodsIssueDate: "2024-01-01",
+                grossWeightKg: "7.000",
+              },
             },
           ],
         }),
@@ -242,7 +254,11 @@ describe("import commit repository", () => {
               id: "sap-row",
               identifier: "9100000001",
               classification: "validUpdate",
-              proposedValues: { orderNumber: "1040000001", grossWeightKg: "7.000" },
+              proposedValues: {
+                orderNumber: "1040000001",
+                goodsIssueDate: "2024-01-01",
+                grossWeightKg: "7.000",
+              },
             },
           ],
         }),
@@ -296,6 +312,7 @@ describe("import commit repository", () => {
               proposedValues: {
                 orderNumber: "1040000002",
                 customerName: "Customer",
+                goodsIssueDate: "2024-01-01",
                 grossWeightKg: "7.000",
               },
             },
@@ -324,7 +341,12 @@ describe("import commit repository", () => {
     expect(tx.order.create).toHaveBeenCalled();
     expect(tx.deliveryOrderLink.upsert).toHaveBeenCalledWith(
       expect.objectContaining({
-        where: { deliveryId_orderId: { deliveryId: delivery.id, orderId: "55555555-5555-4555-8555-555555555555" } },
+        where: {
+          deliveryId_orderId: {
+            deliveryId: delivery.id,
+            orderId: "55555555-5555-4555-8555-555555555555",
+          },
+        },
       })
     );
   });

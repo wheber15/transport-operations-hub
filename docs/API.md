@@ -1,6 +1,6 @@
 # API Architecture
 
-Application API contracts beyond authentication have not yet been implemented.
+Application API contracts use App Router route handlers with Zod validation, service-layer authorization, repository-only Prisma access, and a consistent `{ data }` or `{ error }` envelope.
 
 ## Authentication Architecture
 
@@ -33,12 +33,23 @@ Development seed execution is refused in production. Seed user emails and passwo
 
 When non-authentication API boundaries are introduced, they will follow [ARCHITECTURE.md](ARCHITECTURE.md): request validation at the boundary, business orchestration in services, and persistence through repositories. Contracts, authorization requirements, error responses, and versioning decisions must be documented before an API is exposed.
 
+## Reports Endpoints
+
+All Reports endpoints require an active Planner or Administrator session.
+
+- `GET /api/reports` returns bounded immutable report history. Administrators receive sanitized failure details; Planners receive status only.
+- `POST /api/reports/daily-orders` creates an immutable Daily Orders snapshot from the normalized server-side report filter contract. It accepts `{ "filters": { ... } }`, excludes client pagination from persisted metadata, and returns an existing equivalent snapshot instead of creating a concurrent duplicate.
+- `GET /api/reports/:id/artifacts/:format` is the protected download boundary for completed `XLSX` or `PDF` artifacts. No artifact generator is implemented in Stage B, so it normally returns a safe `404` until a completed artifact exists.
+
+Reports routes use safe error envelopes and do not expose filesystem paths, checksums, database errors, or stack traces. See [REPORTING.md](REPORTING.md) for lifecycle, storage, checksum, and history details.
+
 ## Orders Endpoints
 
-The authenticated Orders API provides read-only operational access:
+The authenticated Orders API provides operational read access and Administrator-only management updates:
 
 - `GET /api/orders` lists non-deleted orders and accepts `query`, `page`, `pageSize`, `sortBy`, and `sortDirection` query parameters. Defaults are page `1`, page size `25`, order-number ascending sort; page size is limited to `100`.
 - `GET /api/orders/:id` returns one non-deleted order with its approved customer, delivery, and audit information.
+- `PATCH /api/orders/:id` is Administrator-only. It validates approved editable fields server-side. The optional Purchase Order Number is trimmed only at its outer whitespace, remains text, and is unavailable until the additive Order export-fields migration has been applied.
 
 Order list searching is performed server-side across order number, picking number, and customer name. Supported sorting is limited to order number, customer, picking number, and goods issue date. Both endpoints require the current authenticated user helper and return a consistent `data` or `error` response envelope. Invalid query or identifier input returns `400`; a missing order returns `404`; unauthenticated access returns `401`; unexpected failures return generic `500` responses without infrastructure details.
 
@@ -46,7 +57,7 @@ Order list searching is performed server-side across order number, picking numbe
 
 The Orders repository is the only Orders-layer code that queries Prisma. The Orders service validates request inputs, coordinates repository calls, exposes the established not-found behaviour, and reserves an activity-recorder boundary for future approved mutations. Pages and route handlers do not query Prisma directly.
 
-Zod schemas own order search, create, and update input validation. Create and update schemas cover only the already-approved order fields; mutation endpoints are not exposed until their business rules are approved. The current Orders scope is read-only.
+Zod schemas own order search and approved administration-update validation. The Purchase Order Number is never supplied by the SAP importer and remains optional internal AXon information; Dachser exports use SAP Sales Order Number instead.
 
 ## Shipments Endpoints
 
@@ -104,3 +115,21 @@ All Data Management endpoints require an active Administrator or Planner session
 - `GET /api/data-imports/:id/results` returns bounded safe results; `results.csv` exports formula-safe CSV.
 
 The raw-sheet response excludes header and earlier rows, uses selected header labels only, and returns staged cell values without identifiers or internal records. The mapped-preview response exposes only allowlisted planner-facing display values, classifications, messages, and safe current/proposed values for row inspection. Neither response accepts client-authoritative preview values.
+
+# Reports: Excel generation
+
+`POST /api/reports/:id/artifacts/XLSX` creates an Excel file for a completed Daily Orders report. It requires an authenticated Planner or Administrator and returns safe `UNAUTHENTICATED`, `FORBIDDEN`, `INVALID_ARTIFACT`, `REPORT_XLSX_GENERATING`, `REPORT_XLSX_UNAVAILABLE`, or `REPORT_XLSX_GENERATION_FAILED` responses.
+
+`GET /api/reports/:id/artifacts/XLSX` streams a completed checksum-verified private file to an authorised Planner or Administrator. It does not expose storage paths. The workbook is rendered only from the report record’s stored rows, KPIs, exceptions, and filter metadata.
+
+## Carrier Export Endpoints
+
+Carrier Export endpoints require an active Planner or Administrator session. The feature remains unavailable until its additive schema migration is applied; the feature gate prevents new-column reads from affecting existing Orders workflows before then.
+
+- `POST /api/carrier-exports/preview` validates a selected active Carrier, Goods Issue date, and export stage (`INITIAL`, `UPDATE`, or `ADDITION`). It returns immutable-candidate rows, calculated planned pallets, comparison counts, and row-level blockers without writing operational data.
+- `POST /api/carrier-exports` persists a pending immutable export snapshot, renders a private XLSX artifact, and completes the run only after private storage succeeds.
+- `GET /api/carrier-exports` returns bounded export history.
+- `GET /api/carrier-exports/:id/artifact` streams a completed, checksum-verified XLSX file through an authenticated route without disclosing its storage key or filesystem path.
+- `POST /api/carrier-exports/:id/sent` is Administrator-only and changes a generated run to `SENT` with an audit activity.
+
+The export reads the business-confirmed SAP gross Order weight for each eligible Order/Delivery row and uses the export-only rule `MAX(1, CEILING(weight / 750 kg))`. It never writes planned export values back to operational Order, Delivery, Shipment, Pallet, Report, or import records.

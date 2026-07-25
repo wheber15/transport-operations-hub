@@ -23,6 +23,8 @@ This roadmap records approved project phases without assigning dates. Future sco
 
 Pallet capture UI and APIs remain future work. SAP gross-weight parsing and customer-specific schedule imports remain future work. The data foundation must preserve SAP order identifiers, Ship-To identifiers, route codes, gross order weight, and the distinction between SAP Goods Issue dates and any future customer operational schedule. Reconciliation of existing manual or legacy shipment totals with pallet-derived totals remains unresolved. Automatic low-weight handling, automatic free-material classification, and automatic pallet grouping remain out of scope until separately approved.
 
+Daily Orders reporting is implemented. Daily Shipments, Trailer Planning, Pallet Summary, Planned vs Actual Weight, Pallet Accuracy, Carrier Performance, Weekly Operations, Monthly Operations, and KPI Summary remain separate future reporting slices; their calculations and data contracts have not been approved or implemented.
+
 ## Future Planning
 
 Spreadsheet import and data-management foundations are implemented. Direct SAP integration, automatic synchronization, automatic cleanup scheduling, manual data editing, and pallet capture remain future work.

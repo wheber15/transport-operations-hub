@@ -21,6 +21,7 @@ Files are limited to 10 MB, 10,000 rows, 100 columns, and 2,000 characters per c
 ## Import types
 
 - **Delivery reference:** matches an existing Delivery. It may update only its active Order's SAP Goods Issue Date, Ship-To Number, Route Code, and SAP Gross Weight. Shipment Number is preview-only. No records are created, identifiers are immutable, and empty cells never overwrite existing values.
+- **SAP Order Book:** uses **Sales Document** as Delivery Number and **Originating Document** as Order Number. A valid row may create a missing active Customer, Order, Delivery, and Delivery–Order association. Customer identity is the exact active Customer Name supplied by SAP **Name 1**; where no active exact-name Customer exists, AXon creates one with that SAP name. **Ship-To Party** remains a separate Order field. Existing active Orders receive only approved SAP-owned fields (Goods Issue Date, Ship-To Party, Route, Shipping Point, and SAP Gross Weight). Manual Purchase Order Number, shipment planning, and pallet data are never overwritten. A second Originating Document for an existing Delivery creates an association without replacing that Delivery's legacy primary Order.
 - **Operational schedule:** matches an existing Delivery and creates or updates one schedule per `Delivery + Source`. It never overwrites SAP Goods Issue Date.
 
 Dates accept `DD/MM/YYYY`, `DD-MM-YYYY`, `YYYY-MM-DD`, and Excel serial values. SAP gross weight uses decimal-safe European kilogram parsing. Duplicate business keys are rejected; the final duplicate never wins silently.
@@ -33,4 +34,4 @@ Result CSV exports include only source row, identifier, classification, and mess
 
 ## Current limitations
 
-Manual editing, direct SAP APIs, recurring synchronization, automatic cleanup scheduling, pallet capture, and record creation are out of scope.
+Manual editing, direct SAP APIs, recurring synchronization, automatic cleanup scheduling, and pallet capture are out of scope.

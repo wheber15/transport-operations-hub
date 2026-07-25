@@ -47,13 +47,19 @@ function transactionMock(overrides?: Partial<Record<string, unknown>>) {
     },
     delivery: {
       findFirst: vi.fn().mockResolvedValue(delivery),
-      create: vi.fn().mockResolvedValue({}),
+      create: vi.fn().mockResolvedValue(delivery),
     },
-    customer: { findFirst: vi.fn().mockResolvedValue({ id: "customer" }), create: vi.fn() },
+    customer: {
+      findFirst: vi.fn().mockResolvedValue({ id: "customer" }),
+      create: vi.fn().mockResolvedValue({ id: "customer" }),
+    },
     order: {
+      findFirst: vi.fn().mockResolvedValue({ id: delivery.orderId, deletedAt: null }),
       update: vi.fn().mockResolvedValue({}),
       upsert: vi.fn().mockResolvedValue({ id: delivery.orderId }),
+      create: vi.fn().mockResolvedValue({ id: delivery.orderId }),
     },
+    deliveryOrderLink: { upsert: vi.fn().mockResolvedValue({}) },
     operationalSchedule: { upsert: vi.fn().mockResolvedValue({}) },
     importRow: { update: vi.fn().mockResolvedValue({}) },
     activity: { create: vi.fn().mockResolvedValue({}) },
@@ -102,7 +108,7 @@ describe("import commit repository", () => {
     prismaMock.$transaction.mockImplementation(async (callback) => callback(tx));
     await expect(commitBatch(batchId, actorId)).rejects.toThrow("BATCH_ALREADY_COMMITTED");
   });
-  it("creates SAP Order Book records without changing an existing Shipment assignment", async () => {
+  it("updates approved SAP fields on an existing matching Order without creating records", async () => {
     const tx = transactionMock({
       importBatch: {
         findFirst: vi.fn().mockResolvedValue({
@@ -114,7 +120,7 @@ describe("import commit repository", () => {
             {
               id: "sap-row",
               identifier: "9100000001",
-              classification: "alreadyAssignedToShipment",
+              classification: "validUpdate",
               proposedValues: {
                 orderNumber: "1040000001",
                 customerName: "Customer",
@@ -129,18 +135,198 @@ describe("import commit repository", () => {
         findFirst: vi.fn().mockResolvedValue({
           ...delivery,
           shipmentId: "shipment-id",
-          order: { orderNumber: "1040000001" },
+          deletedAt: null,
+          order: { orderNumber: "1040000001", deletedAt: null },
         }),
         create: vi.fn(),
       },
     });
     prismaMock.$transaction.mockImplementation(async (callback) => callback(tx));
     await commitBatch(batchId, actorId);
-    expect(tx.order.upsert).toHaveBeenCalledWith(
-      expect.objectContaining({ where: { orderNumber: "1040000001" } })
+    expect(tx.order.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { id: delivery.orderId },
+        data: expect.objectContaining({ grossWeightKg: expect.anything(), updatedById: actorId }),
+      })
     );
     expect(tx.delivery.create).not.toHaveBeenCalled();
+    expect(tx.customer.create).not.toHaveBeenCalled();
+    expect(tx.order.upsert).not.toHaveBeenCalled();
+    expect(tx.deliveryOrderLink.upsert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        create: expect.objectContaining({ source: "SAP_IMPORT", deliveryId: delivery.id }),
+      })
+    );
+    const orderUpdate = vi.mocked(tx.order.update).mock.calls[0]?.[0] as {
+      data: Record<string, unknown>;
+    };
+    expect(orderUpdate.data).not.toHaveProperty("purchaseOrderNumber");
     expect(tx.activity.create).toHaveBeenCalledTimes(1);
+  });
+  it("creates a missing SAP Delivery while preserving the newly resolved Order as primary", async () => {
+    const tx = transactionMock({
+      importBatch: {
+        findFirst: vi.fn().mockResolvedValue({
+          id: batchId,
+          status: "previewed",
+          importType: "sapOrderBook",
+          originalFileName: "order-book.xlsx",
+          rows: [
+            {
+              id: "sap-row",
+              identifier: "9100000001",
+              classification: "validUpdate",
+              proposedValues: { orderNumber: "1040000001", grossWeightKg: "7.000" },
+            },
+          ],
+        }),
+        update: vi.fn().mockResolvedValue({ status: "committed", importedRows: 1, skippedRows: 0 }),
+      },
+      delivery: { findFirst: vi.fn().mockResolvedValue(null), create: vi.fn().mockResolvedValue(delivery) },
+    });
+    prismaMock.$transaction.mockImplementation(async (callback) => callback(tx));
+    await commitBatch(batchId, actorId);
+    expect(tx.delivery.create).toHaveBeenCalledWith(
+      expect.objectContaining({ data: expect.objectContaining({ deliveryNumber: "9100000001" }) })
+    );
+    expect(tx.deliveryOrderLink.upsert).toHaveBeenCalled();
+  });
+  it("skips a soft-deleted SAP Delivery without restoring it", async () => {
+    const tx = transactionMock({
+      importBatch: {
+        findFirst: vi.fn().mockResolvedValue({
+          id: batchId,
+          status: "previewed",
+          importType: "sapOrderBook",
+          originalFileName: "order-book.xlsx",
+          rows: [
+            {
+              id: "sap-row",
+              identifier: "9100000001",
+              classification: "validUpdate",
+              proposedValues: { orderNumber: "1040000001", grossWeightKg: "7.000" },
+            },
+          ],
+        }),
+        update: vi.fn().mockResolvedValue({ status: "committed", importedRows: 0, skippedRows: 1 }),
+      },
+      delivery: {
+        findFirst: vi.fn().mockResolvedValue({
+          ...delivery,
+          deletedAt: new Date("2026-07-24T00:00:00.000Z"),
+          order: { orderNumber: "1040000001", deletedAt: null },
+        }),
+        create: vi.fn(),
+      },
+    });
+    prismaMock.$transaction.mockImplementation(async (callback) => callback(tx));
+    await commitBatch(batchId, actorId);
+    expect(tx.importRow.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ classification: "unavailableRecord" }),
+      })
+    );
+    expect(tx.order.update).not.toHaveBeenCalled();
+    expect(tx.delivery.create).not.toHaveBeenCalled();
+  });
+  it("links a second existing Order without changing the legacy primary Order", async () => {
+    const tx = transactionMock({
+      importBatch: {
+        findFirst: vi.fn().mockResolvedValue({
+          id: batchId,
+          status: "previewed",
+          importType: "sapOrderBook",
+          originalFileName: "order-book.xlsx",
+          rows: [
+            {
+              id: "sap-row",
+              identifier: "9100000001",
+              classification: "validUpdate",
+              proposedValues: { orderNumber: "1040000001", grossWeightKg: "7.000" },
+            },
+          ],
+        }),
+        update: vi.fn().mockResolvedValue({ status: "committed", importedRows: 0, skippedRows: 1 }),
+      },
+      delivery: {
+        findFirst: vi.fn().mockResolvedValue({
+          ...delivery,
+          deletedAt: null,
+          order: { orderNumber: "1040000002", deletedAt: null },
+        }),
+        create: vi.fn(),
+      },
+      order: {
+        findFirst: vi
+          .fn()
+          .mockResolvedValue({ id: "55555555-5555-4555-8555-555555555555", deletedAt: null }),
+        update: vi.fn().mockResolvedValue({}),
+        upsert: vi.fn(),
+      },
+    });
+    prismaMock.$transaction.mockImplementation(async (callback) => callback(tx));
+    await commitBatch(batchId, actorId);
+    expect(tx.deliveryOrderLink.upsert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: {
+          deliveryId_orderId: {
+            deliveryId: delivery.id,
+            orderId: "55555555-5555-4555-8555-555555555555",
+          },
+        },
+      })
+    );
+    expect(tx.order.update).toHaveBeenCalledWith(
+      expect.objectContaining({ where: { id: "55555555-5555-4555-8555-555555555555" } })
+    );
+  });
+  it("creates a missing Originating Order and links it without changing the primary Delivery Order", async () => {
+    const tx = transactionMock({
+      importBatch: {
+        findFirst: vi.fn().mockResolvedValue({
+          id: batchId,
+          status: "previewed",
+          importType: "sapOrderBook",
+          originalFileName: "order-book.xlsx",
+          rows: [
+            {
+              id: "sap-row",
+              identifier: "9100000001",
+              classification: "validUpdate",
+              proposedValues: {
+                orderNumber: "1040000002",
+                customerName: "Customer",
+                grossWeightKg: "7.000",
+              },
+            },
+          ],
+        }),
+        update: vi.fn().mockResolvedValue({ status: "committed", importedRows: 1, skippedRows: 0 }),
+      },
+      delivery: {
+        findFirst: vi.fn().mockResolvedValue({
+          ...delivery,
+          deletedAt: null,
+          order: { orderNumber: "1040000001", deletedAt: null },
+        }),
+      },
+      order: {
+        findFirst: vi.fn().mockResolvedValue(null),
+        update: vi.fn(),
+        upsert: vi.fn(),
+        create: vi.fn().mockResolvedValue({ id: "55555555-5555-4555-8555-555555555555" }),
+      },
+    });
+    prismaMock.$transaction.mockImplementation(async (callback) => callback(tx));
+
+    await commitBatch(batchId, actorId);
+
+    expect(tx.order.create).toHaveBeenCalled();
+    expect(tx.deliveryOrderLink.upsert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { deliveryId_orderId: { deliveryId: delivery.id, orderId: "55555555-5555-4555-8555-555555555555" } },
+      })
+    );
   });
   it("uses an explicit interactive transaction window for multi-row SAP imports", async () => {
     const tx = transactionMock();

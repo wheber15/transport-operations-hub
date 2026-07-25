@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { getCurrentUser } from "@/features/auth/application/session";
 import { previewImport } from "@/features/data-management/application/data-import-service";
-export async function POST(_: Request, { params }: { params: Promise<{ id: string }> }) {
+export async function POST(request: Request, { params }: { params: Promise<{ id: string }> }) {
   const user = await getCurrentUser();
   if (!user)
     return NextResponse.json(
@@ -9,7 +9,8 @@ export async function POST(_: Request, { params }: { params: Promise<{ id: strin
       { status: 401 }
     );
   try {
-    const batch = await previewImport(user, (await params).id);
+    const body = await request.json().catch(() => ({}));
+    const batch = await previewImport(user, (await params).id, body);
     return NextResponse.json({
       data: {
         id: batch?.id,

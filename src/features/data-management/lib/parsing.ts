@@ -4,7 +4,9 @@ import { importLimits } from "@/features/data-management/domain/constants";
 import { toJsonSafeValue } from "@/features/data-management/lib/json-safe";
 
 export type SpreadsheetCell = string | null;
-export type ParsedWorkbook = { sheets: { name: string; rows: SpreadsheetCell[][] }[] };
+export type ParsedWorkbook = {
+  sheets: { name: string; rows: SpreadsheetCell[][]; numericCells?: boolean[][] }[];
+};
 
 const xlsxMimeTypes = new Set([
   "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
@@ -15,17 +17,23 @@ const csvMimeTypes = new Set(["text/csv", "application/csv", "text/plain"]);
 export function normalizeIdentifier(value: unknown) {
   return String(value ?? "").trim();
 }
-export function parseSapWeight(value: string): string | null {
+export function parseSapWeight(value: string, representation: "numeric" | "text" = "text"): string | null {
+  const positive = (parsed: string) => (/^0(?:\.0+)?$/.test(parsed) ? null : parsed);
   const input = value
     .trim()
     .replace(/\s+/g, " ")
     .replace(/\s*kg\s*$/i, "");
   if (!input || /[^0-9.,\s]/.test(input)) return null;
   const compact = input.replace(/\s/g, "");
-  if (/^\d{1,3}(\.\d{3})+(,\d{1,3})?$/.test(compact))
-    return compact.replace(/\./g, "").replace(",", ".");
-  if (/^\d+(,\d{1,3})?$/.test(compact)) return compact.replace(",", ".");
-  if (/^\d+\.\d{1,3}$/.test(compact)) return compact;
+  if (representation === "numeric" && /^\d+$/.test(compact)) {
+    const padded = compact.padStart(4, "0");
+    return positive(`${padded.slice(0, -3)}.${padded.slice(-3)}`);
+  }
+  if (representation === "numeric" && /^\d+\.\d{1,3}$/.test(compact)) return positive(compact);
+  if (/^\d{1,3}(\.\d{3})+,\d{1,3}$/.test(compact))
+    return positive(compact.replace(/\./g, "").replace(",", "."));
+  if (/^\d+,\d{1,3}$/.test(compact)) return positive(compact.replace(",", "."));
+  if (/^\d+\.\d{1,3}$/.test(compact)) return positive(compact);
   return null;
 }
 export function parseBusinessDate(value: string): string | null {
@@ -92,7 +100,7 @@ export async function parseImportFile(file: File): Promise<ParsedWorkbook> {
         Array.from({ length: row.length }, (_, index) => normalizeIdentifier(row[index]))
     );
     validateRows(rows);
-    return { sheets: [{ name: "CSV", rows }] };
+    return { sheets: [{ name: "CSV", rows, numericCells: rows.map((row) => row.map(() => false)) }] };
   }
   if (!name.endsWith(".xlsx")) throw new Error("Only .xlsx and .csv files are supported.");
   if (file.type && !xlsxMimeTypes.has(file.type))
@@ -102,18 +110,24 @@ export async function parseImportFile(file: File): Promise<ParsedWorkbook> {
   const workbook = new ExcelJS.Workbook();
   await workbook.xlsx.load(bytes as never, { ignoreNodes: ["extLst"] });
   const sheets = workbook.worksheets
-    .map((sheet) => ({
-      name: sheet.name,
-      rows: trimTrailingEmptyRows(
-        Array.from({ length: sheet.rowCount }, (_, rowIndex) => {
+    .map((sheet) => {
+      const parsedRows = Array.from({ length: sheet.rowCount }, (_, rowIndex) => {
           const values = sheet.getRow(rowIndex + 1).values;
           const width = Array.isArray(values) ? Math.max(0, values.length - 1) : 0;
           return Array.from({ length: width }, (_, columnIndex) =>
             cellToString(Array.isArray(values) ? values[columnIndex + 1] : undefined)
           );
-        })
-      ),
-    }))
+        });
+      const numericCells = Array.from({ length: sheet.rowCount }, (_, rowIndex) => {
+        const values = sheet.getRow(rowIndex + 1).values;
+        const width = Array.isArray(values) ? Math.max(0, values.length - 1) : 0;
+        return Array.from({ length: width }, (_, columnIndex) =>
+          typeof (Array.isArray(values) ? values[columnIndex + 1] : undefined) === "number"
+        );
+      });
+      const rows = trimTrailingEmptyRows(parsedRows);
+      return { name: sheet.name, rows, numericCells: numericCells.slice(0, rows.length) };
+    })
     .filter((sheet) => sheet.rows.some((row) => !isEmptyRow(row)));
   if (!sheets.length) throw new Error("The workbook does not contain a usable sheet.");
   sheets.forEach((sheet) => validateRows(sheet.rows));

@@ -103,7 +103,7 @@ export async function uploadImport(actor: Actor, importTypeInput: unknown, file:
         return [
           {
             sheet,
-            result: correlateSapOrderBook(sheet.rows.map((row) => row.map((cell) => cell ?? ""))),
+            result: correlateSapOrderBook(sheet.rows.map((row) => row.map((cell) => cell ?? "")), sheet.numericCells),
           },
         ];
       } catch {
@@ -115,12 +115,14 @@ export async function uploadImport(actor: Actor, importTypeInput: unknown, file:
     if (!matches.length) throw new Error("NO_PROCESSED_ROWS");
     if (matches.length > 1) throw new Error("CONFLICTING_DETAIL_DATA");
     const { sheet, result } = matches[0];
-    const existing = await repository.getActiveDeliveryRecords(
-      result.records.map((record) => record.deliveryNumber)
-    );
+    const [existing, orders] = await Promise.all([
+      repository.getActiveDeliveryRecords(result.records.map((record) => record.deliveryNumber)),
+      repository.getOrderRecords(result.records.map((record) => record.orderNumber)),
+    ]);
     const existingByNumber = new Map(
       existing.map((delivery) => [delivery.deliveryNumber, delivery])
     );
+    const ordersByNumber = new Map(orders.map((order) => [order.orderNumber, order]));
     return repository.createSapOrderBookBatch({
       actorId: actor.id,
       originalFileName: safeName(file.name),
@@ -128,16 +130,27 @@ export async function uploadImport(actor: Actor, importTypeInput: unknown, file:
       headerRowNumber: result.headerRowNumber,
       rows: result.records.map((record) => {
         const current = existingByNumber.get(record.deliveryNumber);
+        const targetOrder = ordersByNumber.get(record.orderNumber);
+        const isUnchanged =
+          Boolean(current && targetOrder && current.order.orderNumber === record.orderNumber) &&
+          ![
+            record.goodsIssueDate &&
+              targetOrder?.goodsIssueDate?.toISOString().slice(0, 10) !== record.goodsIssueDate,
+            record.shipToNumber && targetOrder?.shipToNumber !== record.shipToNumber,
+            record.routeCode && targetOrder?.routeCode !== record.routeCode,
+            record.grossWeightKg && targetOrder?.grossWeightKg?.toFixed(3) !== record.grossWeightKg,
+            record.shippingPoint && targetOrder?.shippingPoint !== record.shippingPoint,
+          ].some(Boolean);
         const baseClassification =
           record.classification === "readyToCreate" && !record.customerName
             ? "requiresReview"
-            : record.classification === "readyToCreate" &&
-                current &&
-                current.order.orderNumber !== record.orderNumber
-              ? "requiresReview"
+            : record.classification === "readyToCreate" && (current?.deletedAt || targetOrder?.deletedAt)
+              ? "unavailableRecord"
               : record.classification === "readyToCreate"
-                ? current
-                  ? "readyToUpdate"
+                ? current || targetOrder
+                  ? isUnchanged
+                    ? "unchanged"
+                    : "readyToUpdate"
                   : "readyToCreate"
                 : record.classification === "missingDetailRow"
                   ? "missingDetailRow"
@@ -148,10 +161,7 @@ export async function uploadImport(actor: Actor, importTypeInput: unknown, file:
                       : record.classification === "duplicateDelivery"
                         ? "duplicateDelivery"
                         : "requiresReview";
-        const classification =
-          current?.shipmentId && ["readyToCreate", "readyToUpdate"].includes(baseClassification)
-            ? "alreadyAssignedToShipment"
-            : baseClassification;
+        const classification = baseClassification;
         return {
           sourceRowNumber: record.headerRowNumber,
           identifier: record.deliveryNumber,
@@ -159,13 +169,14 @@ export async function uploadImport(actor: Actor, importTypeInput: unknown, file:
           message:
             classification === "requiresReview" && !record.customerName
               ? "Customer Name is required before this Delivery can be created."
-              : classification === "requiresReview" &&
-                  current?.order.orderNumber !== record.orderNumber
-                ? "Delivery belongs to a different Sales Order."
+              : classification === "unavailableRecord"
+                ? "The Delivery or Originating Order is unavailable."
                 : classification === "readyToCreate"
-                  ? "Ready to create."
+                  ? "Ready to create a Customer, Order, Delivery, and association."
                   : classification === "readyToUpdate"
-                    ? "Ready to update; existing Shipment assignment will be preserved."
+                    ? "Ready to create or update SAP-owned records; shipment and pallet data will be preserved."
+                    : classification === "unchanged"
+                      ? "No approved SAP field changes or new associations were detected."
                     : record.message,
           currentValues: current
             ? {
@@ -307,9 +318,59 @@ export async function saveMapping(actor: Actor, id: string, input: unknown) {
   });
   return getBatch(actor, id);
 }
-export async function previewImport(actor: Actor, id: string) {
+export async function previewImport(
+  actor: Actor,
+  id: string,
+  dateControl?: { intendedGoodsIssueDate?: unknown; acknowledgeMismatch?: unknown; reason?: unknown }
+) {
   const { batch } = await getBatch(actor, id);
   requireMutable(batch);
+  if (batch.importType === "sapOrderBook") {
+    const intendedValue =
+      typeof dateControl?.intendedGoodsIssueDate === "string"
+        ? parseBusinessDate(dateControl.intendedGoodsIssueDate)
+        : null;
+    if (!intendedValue) throw new Error("Select a valid Intended Goods Issue Date before previewing.");
+    const acknowledgeMismatch = dateControl?.acknowledgeMismatch === true;
+    const reason = typeof dateControl?.reason === "string" ? dateControl.reason.trim() : "";
+    const rows = batch.rows.map((row) => {
+      const proposed = recordFromJson(row.proposedValues);
+      const sapGoodsIssueDate = proposed.goodsIssueDate;
+      const base = { id: row.id, identifier: row.identifier, currentValues: row.currentValues as Prisma.InputJsonValue | null, proposedValues: { ...proposed, intendedGoodsIssueDate: intendedValue, sapGoodsIssueDate } as Prisma.InputJsonValue };
+      if (!sapGoodsIssueDate)
+        return { ...base, classification: "missingSapDate", message: "SAP Goods Issue Date is missing or invalid and blocks import." };
+      if (sapGoodsIssueDate !== intendedValue && (!acknowledgeMismatch || !reason))
+        return {
+          ...base,
+          classification: "dateMismatchRequiresAcknowledgement",
+          message: "SAP Goods Issue Date differs from the intended date. Acknowledgement and reason are required.",
+        };
+      const overrideClassification = {
+        readyToCreate: "readyToCreateWithDateOverride",
+        readyToUpdate: "readyToUpdateWithDateOverride",
+        unchanged: "unchangedWithDateOverride",
+      }[row.classification];
+      return {
+        ...base,
+        classification: sapGoodsIssueDate === intendedValue ? row.classification : (overrideClassification ?? row.classification),
+        message:
+          sapGoodsIssueDate === intendedValue
+            ? (row.message ?? "")
+            : overrideClassification
+              ? `Date override acknowledged: SAP ${sapGoodsIssueDate}; operational ${intendedValue}. Reason: ${reason}`
+              : (row.message ?? ""),
+      };
+    });
+    await repository.saveSapOrderBookDatePreview({
+      batchId: batch.id,
+      actorId: actor.id,
+      intendedGoodsIssueDate: new Date(`${intendedValue}T00:00:00.000Z`),
+      acknowledgement:
+        acknowledgeMismatch && reason ? { at: new Date(), byId: actor.id, reason } : null,
+      rows,
+    });
+    return repository.getImportBatch(batch.id);
+  }
   if (!batch.selectedSheetName || !batch.selectedHeaderRow || !batch.mapping)
     throw new Error("Select a sheet, header row, and mapping before previewing.");
   const selectedSheetName = batch.selectedSheetName;
@@ -506,7 +567,7 @@ export async function getImportPreviewRows(actor: Actor, id: string, queryInput:
         classification: row.classification,
         classificationLabel: getImportClassificationLabel(row.classification),
         message: row.message,
-        issues: ["validUpdate", "unchanged", "readyToCreate", "readyToUpdate"].includes(
+        issues: ["validUpdate", "unchanged", "readyToCreate", "readyToUpdate", "readyToCreateWithDateOverride", "readyToUpdateWithDateOverride", "unchangedWithDateOverride"].includes(
           row.classification
         )
           ? []

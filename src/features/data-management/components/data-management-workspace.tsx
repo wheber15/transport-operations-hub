@@ -140,10 +140,15 @@ export function DataManagementWorkspace({ batches }: { batches: Batch[] }) {
   const [message, setMessage] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [confirmed, setConfirmed] = useState(false);
+  const [intendedGoodsIssueDate, setIntendedGoodsIssueDate] = useState("");
+  const [acknowledgeDateMismatch, setAcknowledgeDateMismatch] = useState(false);
+  const [dateMismatchReason, setDateMismatchReason] = useState("");
   const actionable =
     (preview?.counts.validUpdate ?? 0) +
     (preview?.counts.readyToCreate ?? 0) +
     (preview?.counts.readyToUpdate ?? 0) +
+    (preview?.counts.readyToCreateWithDateOverride ?? 0) +
+    (preview?.counts.readyToUpdateWithDateOverride ?? 0) +
     (preview?.counts.alreadyAssignedToShipment ?? 0);
   const headerOptions = useMemo(
     () => headers.filter((header) => header.label && !header.duplicate),
@@ -203,13 +208,35 @@ export function DataManagementWorkspace({ batches }: { batches: Batch[] }) {
       setRawPreview(null);
       setPreview(null);
       if (batch.importType === "sapOrderBook") {
-        await loadRows(batch.id, "preview", 1, { pageSize: 20 });
-        setMessage("SAP Order Book staged. Review normalized delivery records before committing.");
+        setMessage("SAP Order Book staged. Select the Intended Goods Issue Date before previewing.");
       } else {
         setMessage("Workbook staged. Select the sheet that contains the operational table.");
       }
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "Upload failed.");
+    } finally {
+      setBusy(false);
+    }
+  }
+  async function previewSapOrderBook() {
+    if (!active || !intendedGoodsIssueDate) return;
+    setBusy(true);
+    try {
+      const data = await dataImportRequest<{ status: string }>(dataImportPaths.preview(active.id), {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          intendedGoodsIssueDate,
+          acknowledgeMismatch: acknowledgeDateMismatch,
+          reason: dateMismatchReason,
+        }),
+      });
+      await loadRows(active.id, "preview", 1, { pageSize: 20 });
+      setActive({ ...active, status: data.status });
+      setConfirmed(false);
+      setMessage("Preview is ready. Review SAP and operational Goods Issue Dates before confirming.");
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "Preview failed.");
     } finally {
       setBusy(false);
     }
@@ -403,6 +430,31 @@ export function DataManagementWorkspace({ batches }: { batches: Batch[] }) {
               </div>
             </section>
           ) : null}
+          {active.importType === "sapOrderBook" ? (
+            <section className="border-border rounded-xl border p-5">
+              <h2 className="font-semibold">2. Confirm Intended Goods Issue Date</h2>
+              <p className="text-muted-foreground mt-1 text-sm">
+                AXon preserves the source SAP date and uses this planner-selected date operationally when a mismatch is acknowledged.
+              </p>
+              <div className="mt-4 grid max-w-xl gap-3">
+                <label className="grid gap-1 text-sm font-medium">
+                  Intended Goods Issue Date
+                  <input className="border-input bg-background h-10 rounded-md border px-3" onChange={(event) => setIntendedGoodsIssueDate(event.target.value)} type="date" value={intendedGoodsIssueDate} />
+                </label>
+                <label className="flex items-start gap-2 text-sm">
+                  <input checked={acknowledgeDateMismatch} onChange={(event) => setAcknowledgeDateMismatch(event.target.checked)} type="checkbox" />
+                  I acknowledge SAP date mismatches for this batch.
+                </label>
+                {acknowledgeDateMismatch ? (
+                  <label className="grid gap-1 text-sm font-medium">
+                    Acknowledgement reason
+                    <input className="border-input bg-background h-10 rounded-md border px-3" onChange={(event) => setDateMismatchReason(event.target.value)} value={dateMismatchReason} />
+                  </label>
+                ) : null}
+                <Button disabled={busy || !intendedGoodsIssueDate || (acknowledgeDateMismatch && !dateMismatchReason.trim())} onClick={previewSapOrderBook} type="button">Generate preview</Button>
+              </div>
+            </section>
+          ) : null}
           {active.selectedSheetName && active.importType !== "sapOrderBook" ? (
             <section className="border-border rounded-xl border p-5">
               <h2 className="font-semibold">3. Select header row</h2>
@@ -559,8 +611,8 @@ export function DataManagementWorkspace({ batches }: { batches: Batch[] }) {
               <h2 className="font-semibold">6. Review import preview</h2>
               <p className="text-muted-foreground mt-1 text-sm">
                 {actionable > 0
-                  ? `${actionable} ${active.importType === "operationalSchedule" ? "rows ready to create or update a schedule" : "rows ready to update"}. Rows are revalidated when you commit.`
-                  : "No rows can be committed. Review the issues below."}
+                  ? `${actionable} ${active.importType === "operationalSchedule" ? "rows ready to create or update a schedule" : active.importType === "sapOrderBook" ? "rows ready to create or update operational records" : "rows ready to update"}. Rows are revalidated when you commit.`
+                  : "No rows can be committed. No database changes will be made; review the outcome summary below."}
               </p>
               <PreviewSummary counts={preview.counts} importType={active.importType} />
               <form
@@ -685,9 +737,18 @@ export function DataManagementWorkspace({ batches }: { batches: Batch[] }) {
                       type="checkbox"
                     />
                     <span>
-                      I reviewed the preview. Commit {actionable} approved operational updates.
+                      {actionable > 0
+                        ? `I reviewed the preview. Commit ${actionable} approved operational changes.`
+                        : "No approved operational updates are available for this batch."}
                     </span>
                   </label>
+                  {actionable === 0 ? (
+                    <p className="text-muted-foreground mt-3 text-sm" role="status">
+                      Confirm Import is unavailable because this update-only importer found no
+                      matching rows that can be safely updated. It will not create Customers,
+                      Orders, or Deliveries.
+                    </p>
+                  ) : null}
                   <Button
                     className="mt-4"
                     disabled={!confirmed || actionable === 0 || busy}
@@ -774,13 +835,28 @@ function PreviewSummary({
   counts: Record<string, number>;
   importType: ActiveBatch["importType"];
 }) {
+  const count = (classification: string) => counts[classification] ?? 0;
+  const updates = count("validUpdate") + count("readyToUpdate") + count("readyToCreate") + count("readyToUpdateWithDateOverride") + count("readyToCreateWithDateOverride");
+  const unchanged = count("unchanged") + count("unchangedWithDateOverride");
+  const invalid =
+    count("invalidIdentifier") +
+    count("invalidDate") +
+    count("invalidWeight") +
+    count("missingRequiredValue") +
+    count("unsupportedField");
+  const blocked = Math.max(
+    0,
+    Object.values(counts).reduce((total, value) => total + value, 0) - updates - unchanged - invalid
+  );
   const entries = [
     [
       "validUpdate",
       importType === "operationalSchedule" ? "Ready to create schedule" : "Ready to update",
     ],
     ["unchanged", "No change"],
-    ["relatedRecordNotFound", "Delivery not found"],
+    ["deliveryNotFound", "Delivery not found"],
+    ["originatingOrderNotFound", "Originating Order not found"],
+    ["relatedRecordNotFound", "Related record not found"],
     ["duplicateRow", "Duplicate"],
     ["conflict", "Conflict"],
     ["missingRequiredValue", "Missing value"],
@@ -789,20 +865,39 @@ function PreviewSummary({
     ["unsupportedField", "Unsupported"],
     ["unavailableRecord", "Unavailable"],
     ["readyToCreate", "Ready to create"],
+    ["readyToCreateWithDateOverride", "Acknowledged create override"],
     ["readyToUpdate", "Ready to update"],
+    ["readyToUpdateWithDateOverride", "Acknowledged update override"],
+    ["unchangedWithDateOverride", "Acknowledged override — no other change"],
+    ["dateMismatchRequiresAcknowledgement", "Date mismatch awaiting acknowledgement"],
     ["missingDetailRow", "Missing detail row"],
     ["requiresReview", "Requires review"],
     ["alreadyAssignedToShipment", "Assigned to Shipment"],
   ].filter(([classification]) => counts[classification] !== undefined);
   return (
-    <dl className="mt-4 grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
-      {entries.map(([classification, label]) => (
-        <div className="bg-muted/40 rounded-md px-3 py-2" key={classification}>
-          <dt className="text-muted-foreground text-xs">{label}</dt>
-          <dd className="mt-1 text-sm font-semibold tabular-nums">{counts[classification]}</dd>
-        </div>
-      ))}
-    </dl>
+    <div className="mt-4 space-y-3">
+      <dl className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
+        {[
+          ["Updates", updates],
+          ["Unchanged", unchanged],
+          ["Blocked", blocked],
+          ["Invalid", invalid],
+        ].map(([label, value]) => (
+          <div className="bg-muted/40 rounded-md px-3 py-2" key={String(label)}>
+            <dt className="text-muted-foreground text-xs">{label}</dt>
+            <dd className="mt-1 text-sm font-semibold tabular-nums">{value}</dd>
+          </div>
+        ))}
+      </dl>
+      <dl className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
+        {entries.map(([classification, label]) => (
+          <div className="bg-muted/40 rounded-md px-3 py-2" key={classification}>
+            <dt className="text-muted-foreground text-xs">{label}</dt>
+            <dd className="mt-1 text-sm font-semibold tabular-nums">{counts[classification]}</dd>
+          </div>
+        ))}
+      </dl>
+    </div>
   );
 }
 

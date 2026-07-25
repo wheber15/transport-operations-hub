@@ -24,7 +24,7 @@ export type SapOrderBookRecord = {
 };
 
 type HeaderMap = Record<string, number>;
-type SourceRow = { sourceRowNumber: number; values: string[] };
+type SourceRow = { sourceRowNumber: number; sourceRowIndex: number; values: string[] };
 
 const aliases: Record<string, string[]> = {
   salesDocument: ["sales document", "sales doc", "delivery number"],
@@ -117,16 +117,33 @@ function parseOrderBookDate(value: string) {
     : null;
 }
 
-export function correlateSapOrderBook(rows: string[][]) {
+export function correlateSapOrderBook(rows: string[][], numericCells?: boolean[][]) {
   const detected = findHeader(rows);
   if (!detected) throw new Error("HEADER_NOT_FOUND");
   const sourceRows = rows
     .slice(detected.index + 1)
-    .map((values, index) => ({ sourceRowNumber: detected.index + index + 2, values }))
+    .map((values, index) => ({ sourceRowNumber: detected.index + index + 2, sourceRowIndex: detected.index + index + 1, values }))
     .filter((row) => row.values.some((value) => normalizeValue(value)));
   const value = (row: SourceRow, field: keyof typeof aliases) =>
     normalizeValue(row.values[detected.map[field] ?? -1]);
-  const processed = sourceRows.filter((row) =>
+  const headerCandidates = sourceRows.filter((row) => {
+    const salesDocument = normalizeValue(value(row, "salesDocument"));
+    if (salesDocument) return true;
+
+    const originatingDocument = normalizeValue(value(row, "originatingDocument"));
+    if (!originatingDocument) return false;
+
+    return ![
+      "routeCode",
+      "shippingPoint",
+      "goodsIssueDate",
+      "shipToNumber",
+      "grossWeight",
+      "weightUnit",
+      "customerName",
+    ].some((field) => normalizeValue(value(row, field as keyof typeof aliases)));
+  });
+  const processed = headerCandidates.filter((row) =>
     Boolean(
       normalizeSapIdentifier(value(row, "salesDocument")) &&
       normalizeSapIdentifier(value(row, "originatingDocument"))
@@ -147,10 +164,28 @@ export function correlateSapOrderBook(rows: string[][]) {
   }
   const records: SapOrderBookRecord[] = [];
   const seenDeliveries = new Set<string>();
-  for (const header of processed) {
+  for (const header of headerCandidates) {
     const deliveryNumber = normalizeSapIdentifier(value(header, "salesDocument"));
     const orderNumber = normalizeSapIdentifier(value(header, "originatingDocument"));
-    if (!deliveryNumber || !orderNumber) continue;
+    if (!deliveryNumber || !orderNumber) {
+      records.push({
+        deliveryNumber: normalizeValue(value(header, "salesDocument")),
+        orderNumber: normalizeValue(value(header, "originatingDocument")),
+        customerName: null,
+        shipToNumber: null,
+        routeCode: null,
+        goodsIssueDate: null,
+        grossWeightKg: null,
+        shippingPoint: null,
+        headerRowNumber: header.sourceRowNumber,
+        detailRowNumbers: [],
+        detailWeightValues: [],
+        classification: "invalidIdentifier",
+        message: "Sales Document and Originating Document must be valid SAP numeric identifiers.",
+        conflicts: {},
+      });
+      continue;
+    }
     const detailRows = detailsByOrder.get(orderNumber) ?? [];
     const duplicateDelivery = seenDeliveries.has(deliveryNumber);
     seenDeliveries.add(deliveryNumber);
@@ -163,7 +198,12 @@ export function correlateSapOrderBook(rows: string[][]) {
     const rawWeights = detailRows.map((row) => value(row, "grossWeight"));
     const weights = detailRows
       .filter((row) => !value(row, "weightUnit") || value(row, "weightUnit").toUpperCase() === "KG")
-      .map((row) => parseSapWeight(value(row, "grossWeight")))
+      .map((row) =>
+        parseSapWeight(
+          value(row, "grossWeight"),
+          numericCells?.[row.sourceRowIndex]?.[detected.map.grossWeight ?? -1] ? "numeric" : "text"
+        )
+      )
       .filter((weight): weight is string => Boolean(weight));
     const conflicts = Object.fromEntries(
       Object.entries({
@@ -174,7 +214,10 @@ export function correlateSapOrderBook(rows: string[][]) {
       }).filter(([, values]) => values.length > 1)
     );
     const ambiguousOrder = (deliveriesPerOrder.get(orderNumber)?.size ?? 0) > 1;
-    const invalidWeight = rawWeights.some((weight) => weight && !parseSapWeight(weight));
+    const invalidWeight = rawWeights.some((weight, index) => {
+      const detail = detailRows[index];
+      return weight && !parseSapWeight(weight, numericCells?.[detail.sourceRowIndex]?.[detected.map.grossWeight ?? -1] ? "numeric" : "text");
+    });
     const classification = !detailRows.length
       ? "missingDetailRow"
       : invalidWeight

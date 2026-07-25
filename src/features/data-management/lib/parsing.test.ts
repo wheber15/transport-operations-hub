@@ -20,6 +20,27 @@ describe("SAP parsing", () => {
     expect(parseSapWeight("-7,000 KG")).toBeNull();
     expect(parseSapWeight("7,0001 KG")).toBeNull();
   });
+  it.each([
+    ["747936", "747.936"],
+    ["92273", "92.273"],
+    ["254557", "254.557"],
+    ["2956.495", "2956.495"],
+    ["7.358", "7.358"],
+    ["750.001", "750.001"],
+  ])("parses numeric SAP cell %s as %s kg", (input, expected) =>
+    expect(parseSapWeight(input, "numeric")).toBe(expected));
+  it.each([
+    ["2.403,421", "2403.421"],
+    ["1.387,836", "1387.836"],
+    ["2956.495", "2956.495"],
+    ["750.001", "750.001"],
+  ])("parses explicit SAP text %s as %s kg", (input, expected) =>
+    expect(parseSapWeight(input, "text")).toBe(expected));
+  it("rejects ambiguous integer text and non-positive values", () => {
+    expect(parseSapWeight("747936", "text")).toBeNull();
+    expect(parseSapWeight("0", "numeric")).toBeNull();
+    expect(parseSapWeight("-7", "numeric")).toBeNull();
+  });
   it("uses day-first and date-only outputs", () => {
     expect(parseBusinessDate("29/02/2024")).toBe("2024-02-29");
     expect(parseBusinessDate("29-02-2024")).toBe("2024-02-29");
@@ -43,13 +64,13 @@ describe("SAP parsing", () => {
     });
     const parsed = await parseImportFile(file);
     expect(parsed.sheets).toEqual([
-      {
+      expect.objectContaining({
         name: "SAP Order Book",
         rows: [
           ["Sales Document", "Originating Document"],
           ["9108325189", "1046227772"],
         ],
-      },
+      }),
     ]);
   });
   it("rejects a non-XLSX binary before sending it to the XLSX parser", async () => {

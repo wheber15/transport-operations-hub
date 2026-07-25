@@ -35,7 +35,7 @@ export async function createSapOrderBookBatch(input: {
     const batch = await tx.importBatch.create({
       data: {
         importType: "sapOrderBook",
-        status: "previewed",
+        status: "configured",
         originalFileName: input.originalFileName,
         selectedSheetName: input.sheetName,
         selectedHeaderRow: input.headerRowNumber,
@@ -53,23 +53,9 @@ export async function createSapOrderBookBatch(input: {
         createdById: input.actorId,
         updatedById: input.actorId,
         totalRows: input.rows.length,
-        validRows: input.rows.filter((row) =>
-          ["readyToCreate", "readyToUpdate", "alreadyAssignedToShipment"].includes(
-            row.classification
-          )
-        ).length,
-        skippedRows: input.rows.filter(
-          (row) =>
-            !["readyToCreate", "readyToUpdate", "alreadyAssignedToShipment"].includes(
-              row.classification
-            )
-        ).length,
-        failedRows: input.rows.filter(
-          (row) =>
-            !["readyToCreate", "readyToUpdate", "alreadyAssignedToShipment", "unchanged"].includes(
-              row.classification
-            )
-        ).length,
+        validRows: 0,
+        skippedRows: 0,
+        failedRows: 0,
       },
     });
     if (input.rows.length) {
@@ -325,6 +311,48 @@ export async function savePreview(input: {
   ]);
 }
 
+export async function saveSapOrderBookDatePreview(input: {
+  batchId: string;
+  actorId: string;
+  intendedGoodsIssueDate: Date;
+  acknowledgement: { at: Date; byId: string; reason: string } | null;
+  rows: Parameters<typeof savePreview>[0]["rows"];
+}) {
+  return prisma.$transaction([
+    prisma.importBatch.update({
+      where: { id: input.batchId },
+      data: {
+        status: "previewed",
+        intendedGoodsIssueDate: input.intendedGoodsIssueDate,
+        dateMismatchAcknowledgedAt: input.acknowledgement?.at ?? null,
+        dateMismatchAcknowledgedById: input.acknowledgement?.byId ?? null,
+        dateMismatchReason: input.acknowledgement?.reason ?? null,
+        validRows: input.rows.filter((row) =>
+          ["readyToCreate", "readyToUpdate", "unchanged", "readyToCreateWithDateOverride", "readyToUpdateWithDateOverride", "unchangedWithDateOverride"].includes(row.classification)
+        ).length,
+        skippedRows: input.rows.filter((row) =>
+          !["readyToCreate", "readyToUpdate", "unchanged", "readyToCreateWithDateOverride", "readyToUpdateWithDateOverride", "unchangedWithDateOverride"].includes(row.classification)
+        ).length,
+        failedRows: input.rows.filter((row) =>
+          !["readyToCreate", "readyToUpdate", "unchanged", "readyToCreateWithDateOverride", "readyToUpdateWithDateOverride", "unchangedWithDateOverride"].includes(row.classification)
+        ).length,
+        updatedById: input.actorId,
+      },
+    }),
+    ...input.rows.map((row) =>
+      prisma.importRow.update({
+        where: { id: row.id },
+        data: {
+          classification: row.classification,
+          message: row.message,
+          proposedValues: row.proposedValues === null ? Prisma.JsonNull : row.proposedValues,
+          updatedById: input.actorId,
+        },
+      })
+    ),
+  ]);
+}
+
 export async function getActiveDeliveryRecords(numbers: string[]) {
   return prisma.delivery.findMany({
     where: { deliveryNumber: { in: numbers } },
@@ -340,6 +368,7 @@ export async function getActiveDeliveryRecords(numbers: string[]) {
           goodsIssueDate: true,
           shipToNumber: true,
           routeCode: true,
+          shippingPoint: true,
           grossWeightKg: true,
           deletedAt: true,
           customer: { select: { name: true } },
@@ -349,6 +378,23 @@ export async function getActiveDeliveryRecords(numbers: string[]) {
         where: { deletedAt: null },
         select: { source: true, scheduledDispatchDate: true, sourceReference: true },
       },
+    },
+  });
+}
+
+export async function getOrderRecords(numbers: string[]) {
+  return prisma.order.findMany({
+    where: { orderNumber: { in: numbers } },
+    select: {
+      id: true,
+      orderNumber: true,
+      goodsIssueDate: true,
+      shipToNumber: true,
+      routeCode: true,
+      shippingPoint: true,
+      grossWeightKg: true,
+      deletedAt: true,
+      customer: { select: { name: true } },
     },
   });
 }
@@ -367,20 +413,13 @@ export async function commitBatch(batchId: string, actorId: string) {
       logDevelopmentCheckpoint("commit batch status validated");
       let imported = 0;
       let skipped = 0;
-      let customersCreated = 0;
-      let ordersUpserted = 0;
-      let deliveriesCreated = 0;
       logDevelopmentCheckpoint("commit transaction started");
       for (const row of batch.rows) {
-        const sapActionable = [
-          "readyToCreate",
-          "readyToUpdate",
-          "alreadyAssignedToShipment",
-        ].includes(row.classification);
+        const sapActionable = ["readyToCreate", "readyToUpdate", "readyToCreateWithDateOverride", "readyToUpdateWithDateOverride", "alreadyAssignedToShipment", "validUpdate"].includes(
+          row.classification
+        );
         if (
-          (batch.importType === "sapOrderBook"
-            ? !sapActionable
-            : row.classification !== "validUpdate") ||
+          (batch.importType === "sapOrderBook" ? !sapActionable : row.classification !== "validUpdate") ||
           !row.identifier ||
           !row.proposedValues
         ) {
@@ -391,7 +430,37 @@ export async function commitBatch(batchId: string, actorId: string) {
         if (batch.importType === "sapOrderBook") {
           const proposed = row.proposedValues as Record<string, string | null>;
           const orderNumber = proposed.orderNumber;
-          if (!orderNumber || !proposed.customerName) {
+          if (!orderNumber) {
+            skipped++;
+            continue;
+          }
+          if (!proposed.goodsIssueDate) {
+            await tx.importRow.update({
+              where: { id: row.id },
+              data: {
+                classification: "missingSapDate",
+                message: "SAP Goods Issue Date is missing or invalid at commit time.",
+                updatedById: actorId,
+              },
+            });
+            skipped++;
+            continue;
+          }
+          const sourceDate = proposed.goodsIssueDate;
+          const intendedDate = batch.intendedGoodsIssueDate?.toISOString().slice(0, 10) ?? null;
+          if (
+            intendedDate &&
+            sourceDate !== intendedDate &&
+            (!batch.dateMismatchAcknowledgedAt || !batch.dateMismatchReason)
+          ) {
+            await tx.importRow.update({
+              where: { id: row.id },
+              data: {
+                classification: "dateMismatchRequiresAcknowledgement",
+                message: "Date mismatch acknowledgement is required before committing.",
+                updatedById: actorId,
+              },
+            });
             skipped++;
             continue;
           }
@@ -402,84 +471,120 @@ export async function commitBatch(batchId: string, actorId: string) {
           };
           logDevelopmentCheckpoint("SAP delivery lookup started", rowDetails);
           const existingDelivery = await tx.delivery.findFirst({
-            where: { deliveryNumber: row.identifier, deletedAt: null },
-            include: { order: true },
+            where: { deliveryNumber: row.identifier },
+            select: { id: true, orderId: true, deletedAt: true },
           });
           logDevelopmentCheckpoint("SAP delivery lookup completed", rowDetails);
-          if (existingDelivery && existingDelivery.order.orderNumber !== orderNumber) {
+          if (existingDelivery?.deletedAt) {
             await tx.importRow.update({
               where: { id: row.id },
               data: {
-                classification: "requiresReview",
-                message: "Delivery belongs to a different Sales Order.",
+                classification: "unavailableRecord",
+                message: "The Delivery is unavailable at commit time.",
                 updatedById: actorId,
               },
             });
             skipped++;
             continue;
           }
-          logDevelopmentCheckpoint("SAP customer lookup started", rowDetails);
-          let customer = await tx.customer.findFirst({
-            where: { name: proposed.customerName, deletedAt: null },
-            select: { id: true },
-          });
-          logDevelopmentCheckpoint("SAP customer lookup completed", rowDetails);
-          if (!customer) {
-            logDevelopmentCheckpoint("SAP customer create started", rowDetails);
-            customer = await tx.customer.create({
-              data: { name: proposed.customerName, createdById: actorId, updatedById: actorId },
-              select: { id: true },
-            });
-            logDevelopmentCheckpoint("SAP customer create completed", rowDetails);
-            customersCreated++;
-          }
-          const orderData: Prisma.OrderUncheckedUpdateInput = {
-            updatedById: actorId,
-            ...(proposed.goodsIssueDate
-              ? { goodsIssueDate: new Date(`${proposed.goodsIssueDate}T00:00:00.000Z`) }
-              : {}),
-            ...(proposed.shipToNumber ? { shipToNumber: proposed.shipToNumber } : {}),
-            ...(proposed.routeCode ? { routeCode: proposed.routeCode } : {}),
-            ...(proposed.shippingPoint ? { shippingPoint: proposed.shippingPoint } : {}),
-            ...(proposed.grossWeightKg && proposed.grossWeightKg !== "0.000"
-              ? { grossWeightKg: new Prisma.Decimal(proposed.grossWeightKg) }
-              : {}),
-          };
-          logDevelopmentCheckpoint("SAP order upsert started", rowDetails);
-          const order = await tx.order.upsert({
+          const existingOrder = await tx.order.findFirst({
             where: { orderNumber },
-            create: {
-              orderNumber,
-              customerId: customer.id,
-              createdById: actorId,
-              updatedById: actorId,
-              ...(proposed.goodsIssueDate
-                ? { goodsIssueDate: new Date(`${proposed.goodsIssueDate}T00:00:00.000Z`) }
-                : {}),
-              ...(proposed.shipToNumber ? { shipToNumber: proposed.shipToNumber } : {}),
-              ...(proposed.routeCode ? { routeCode: proposed.routeCode } : {}),
-              ...(proposed.shippingPoint ? { shippingPoint: proposed.shippingPoint } : {}),
-              ...(proposed.grossWeightKg && proposed.grossWeightKg !== "0.000"
-                ? { grossWeightKg: new Prisma.Decimal(proposed.grossWeightKg) }
-                : {}),
-            },
-            update: orderData,
+            select: { id: true, deletedAt: true },
           });
-          logDevelopmentCheckpoint("SAP order upsert completed", rowDetails);
-          ordersUpserted++;
-          if (!existingDelivery) {
-            logDevelopmentCheckpoint("SAP delivery create started", rowDetails);
-            await tx.delivery.create({
+          if (existingOrder?.deletedAt) {
+            await tx.importRow.update({
+              where: { id: row.id },
               data: {
-                deliveryNumber: row.identifier,
-                orderId: order.id,
-                createdById: actorId,
+                classification: "unavailableRecord",
+                message: "The Originating Order is unavailable at commit time.",
                 updatedById: actorId,
               },
             });
-            logDevelopmentCheckpoint("SAP delivery create completed", rowDetails);
-            deliveriesCreated++;
+            skipped++;
+            continue;
           }
+          let customerId: string | null = null;
+          if (!existingOrder) {
+            if (!proposed.customerName) {
+              skipped++;
+              continue;
+            }
+            const customer = await tx.customer.findFirst({
+              where: { name: proposed.customerName, deletedAt: null },
+              select: { id: true },
+            });
+            customerId = customer
+              ? customer.id
+              : (
+                  await tx.customer.create({
+                    data: {
+                      name: proposed.customerName,
+                      createdById: actorId,
+                      updatedById: actorId,
+                    },
+                    select: { id: true },
+                  })
+                ).id;
+          }
+          const orderData: {
+            goodsIssueDate?: Date;
+            sapGoodsIssueDate?: Date;
+            grossWeightKg?: Prisma.Decimal;
+            routeCode?: string;
+            shipToNumber?: string;
+            shippingPoint?: string;
+          } = {};
+          if (proposed.goodsIssueDate) {
+            const sapGoodsIssueDate = new Date(`${proposed.goodsIssueDate}T00:00:00.000Z`);
+            orderData.sapGoodsIssueDate = sapGoodsIssueDate;
+            orderData.goodsIssueDate =
+              batch.intendedGoodsIssueDate ?? sapGoodsIssueDate;
+          }
+          if (proposed.shipToNumber) orderData.shipToNumber = proposed.shipToNumber;
+          if (proposed.routeCode) orderData.routeCode = proposed.routeCode;
+          if (proposed.shippingPoint) orderData.shippingPoint = proposed.shippingPoint;
+          if (proposed.grossWeightKg && proposed.grossWeightKg !== "0.000")
+            orderData.grossWeightKg = new Prisma.Decimal(proposed.grossWeightKg);
+          const order = existingOrder
+            ? ({
+                id: existingOrder.id,
+              })
+            : await tx.order.create({
+                data: {
+                  orderNumber,
+                  customerId: customerId!,
+                  ...orderData,
+                  createdById: actorId,
+                  updatedById: actorId,
+                },
+                select: { id: true },
+              });
+          if (existingOrder)
+            await tx.order.update({
+              where: { id: existingOrder.id },
+              data: { ...orderData, updatedById: actorId },
+            });
+          const delivery = existingDelivery
+            ? existingDelivery
+            : await tx.delivery.create({
+                data: {
+                  deliveryNumber: row.identifier,
+                  orderId: order.id,
+                  createdById: actorId,
+                  updatedById: actorId,
+                },
+                select: { id: true, orderId: true, deletedAt: true },
+              });
+          await tx.deliveryOrderLink.upsert({
+            where: { deliveryId_orderId: { deliveryId: delivery.id, orderId: order.id } },
+            create: {
+              deliveryId: delivery.id,
+              orderId: order.id,
+              source: "SAP_IMPORT",
+              createdById: actorId,
+            },
+            update: {},
+          });
           imported++;
           continue;
         }
@@ -553,7 +658,7 @@ export async function commitBatch(batchId: string, actorId: string) {
       });
       if (process.env.NODE_ENV === "development")
         console.info(
-          `[data-import] commit rows completed: imported=${imported}, skipped=${skipped}, customersCreated=${customersCreated}, ordersUpserted=${ordersUpserted}, deliveriesCreated=${deliveriesCreated}`
+          `[data-import] commit rows completed: imported=${imported}, skipped=${skipped}`
         );
       logDevelopmentCheckpoint("commit batch status updated");
       logDevelopmentCheckpoint("commit Activity creation started");

@@ -65,4 +65,16 @@ describe("SAP Order Book correlation", () => {
     expect(result.records).toHaveLength(1);
     expect(result.records[0].classification).toBe("duplicateDelivery");
   });
+  it("returns a row-level blocker for malformed SAP header identifiers", () => {
+    const result = correlateSapOrderBook([
+      header,
+      ["", "not-a-delivery", "", "", "1040000001", "", "", "0", "KG", ""],
+    ]);
+    expect(result.records).toEqual([
+      expect.objectContaining({
+        classification: "invalidIdentifier",
+        message: "Sales Document and Originating Document must be valid SAP numeric identifiers.",
+      }),
+    ]);
+  });
 });

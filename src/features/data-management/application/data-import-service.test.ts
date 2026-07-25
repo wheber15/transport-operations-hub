@@ -5,7 +5,9 @@ const repository = vi.hoisted(() => ({
   createSapOrderBookBatch: vi.fn(),
   getImportBatch: vi.fn(),
   getActiveDeliveryRecords: vi.fn(),
+  getOrderRecords: vi.fn(),
   savePreview: vi.fn(),
+  saveSapOrderBookDatePreview: vi.fn(),
   getImportBatchPreviewContext: vi.fn(),
   getImportHeaderRow: vi.fn(),
   getPreviewRows: vi.fn(),
@@ -27,7 +29,10 @@ import {
 } from "./data-import-service";
 
 describe("data import service authorization and preview", () => {
-  beforeEach(() => vi.clearAllMocks());
+  beforeEach(() => {
+    vi.clearAllMocks();
+    repository.getOrderRecords.mockResolvedValue([]);
+  });
   it("allows active planners and rejects unauthorized roles at the service boundary", async () => {
     vi.mocked(parseImportFile).mockResolvedValue({
       sheets: [{ name: "Sheet1", rows: [["Delivery"]] }],
@@ -73,6 +78,103 @@ describe("data import service authorization and preview", () => {
       expect.objectContaining({ rows: [expect.objectContaining({ identifier: "9100000001" })] })
     );
     expect(repository.createImportBatch).not.toHaveBeenCalled();
+  });
+  it("stages a valid SAP Order Book row as ready to create when its Delivery and Order are new", async () => {
+    vi.mocked(parseImportFile).mockResolvedValue({
+      sheets: [
+        {
+          name: "Sheet1",
+          rows: [
+            [
+              "Sales Document",
+              "Originating Document",
+              "Open gross weight",
+              "Weight Unit",
+              "Name 1",
+            ],
+            ["9100000001", "1040000001", "0", "KG", ""],
+            ["", "1040000001", "7,000 KG", "KG", "Customer"],
+          ],
+        },
+      ],
+    });
+    repository.getActiveDeliveryRecords.mockResolvedValue([]);
+    repository.createSapOrderBookBatch.mockResolvedValue({ id: "batch", totalRows: 1 });
+    await uploadImport(
+      { id: "user", role: "Planner" },
+      "sapOrderBook",
+      new File(["x"], "order-book.xlsx")
+    );
+    expect(repository.createSapOrderBookBatch).toHaveBeenCalledWith(
+      expect.objectContaining({
+        rows: [
+          expect.objectContaining({
+            classification: "readyToCreate",
+            message: "Ready to create a Customer, Order, Delivery, and association.",
+          }),
+        ],
+      })
+    );
+  });
+  it("reports an unchanged existing SAP row without treating it as a creation request", async () => {
+    vi.mocked(parseImportFile).mockResolvedValue({
+      sheets: [
+        {
+          name: "Sheet1",
+          rows: [
+            [
+              "Sales Document",
+              "Originating Document",
+              "Open gross weight",
+              "Weight Unit",
+              "Name 1",
+            ],
+            ["9100000001", "1040000001", "0", "KG", ""],
+            ["", "1040000001", "7,000 KG", "KG", "Customer"],
+          ],
+        },
+      ],
+    });
+    repository.getActiveDeliveryRecords.mockResolvedValue([
+      {
+        deliveryNumber: "9100000001",
+        shipmentId: null,
+        deletedAt: null,
+        order: {
+          orderNumber: "1040000001",
+          goodsIssueDate: null,
+          shipToNumber: null,
+          routeCode: null,
+          shippingPoint: null,
+          grossWeightKg: { toFixed: () => "7.000" },
+          deletedAt: null,
+          customer: { name: "Customer" },
+        },
+      },
+    ]);
+    repository.getOrderRecords.mockResolvedValue([
+      {
+        orderNumber: "1040000001",
+        goodsIssueDate: null,
+        shipToNumber: null,
+        routeCode: null,
+        shippingPoint: null,
+        grossWeightKg: { toFixed: () => "7.000" },
+        deletedAt: null,
+        customer: { name: "Customer" },
+      },
+    ]);
+    repository.createSapOrderBookBatch.mockResolvedValue({ id: "batch", totalRows: 1 });
+    await uploadImport(
+      { id: "user", role: "Planner" },
+      "sapOrderBook",
+      new File(["x"], "order-book.xlsx")
+    );
+    expect(repository.createSapOrderBookBatch).toHaveBeenCalledWith(
+      expect.objectContaining({
+        rows: [expect.objectContaining({ classification: "unchanged" })],
+      })
+    );
   });
   it("rejects an SAP Order Book selected as Delivery Reference before staging records", async () => {
     vi.mocked(parseImportFile).mockResolvedValue({
@@ -149,12 +251,12 @@ describe("data import service authorization and preview", () => {
     });
     repository.getPreviewRows.mockResolvedValue({
       total: 1,
-      classifications: [{ classification: "relatedRecordNotFound", _count: { _all: 1 } }],
+      classifications: [{ classification: "deliveryNotFound", _count: { _all: 1 } }],
       rows: [
         {
           sourceRowNumber: 2,
           identifier: "000TEST1001",
-          classification: "relatedRecordNotFound",
+          classification: "deliveryNotFound",
           message: "No matching delivery was found.",
           mappedValues: { values: ["000TEST1001", "7,000 KG", "not exposed"] },
           currentValues: null,

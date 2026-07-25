@@ -59,19 +59,35 @@ export async function GET(_request: Request, { params }: RouteContext<"/api/ship
 
 export async function DELETE(_request: Request, { params }: RouteContext<"/api/shipments/[id]">) {
   const user = await getCurrentUser();
-  if (!user) return NextResponse.json({ error: { code: "UNAUTHENTICATED", message: "Authentication is required." } }, { status: 401 });
+  if (!user)
+    return NextResponse.json(
+      { error: { code: "UNAUTHENTICATED", message: "Authentication is required." } },
+      { status: 401 }
+    );
   try {
     const { id } = await params;
     const result = await deleteShipment(user, id);
     return NextResponse.json({ data: result });
   } catch (error) {
     if (error instanceof ShipmentDeleteNotFoundError)
-      return NextResponse.json({ error: { code: "SHIPMENT_NOT_FOUND", message: "Shipment not found." } }, { status: 404 });
+      return NextResponse.json(
+        { error: { code: "SHIPMENT_NOT_FOUND", message: "Shipment not found." } },
+        { status: 404 }
+      );
     if (error instanceof DeliveryAssignmentForbiddenError)
-      return NextResponse.json({ error: { code: "FORBIDDEN", message: "You are not allowed to delete Shipments." } }, { status: 403 });
+      return NextResponse.json(
+        { error: { code: "FORBIDDEN", message: "You are not allowed to delete Shipments." } },
+        { status: 403 }
+      );
     if (error instanceof ZodError)
-      return NextResponse.json({ error: { code: "INVALID_SHIPMENT_ID", message: "Invalid shipment identifier." } }, { status: 400 });
-    return NextResponse.json({ error: { code: "INTERNAL_SERVER_ERROR", message: "Shipment could not be deleted." } }, { status: 500 });
+      return NextResponse.json(
+        { error: { code: "INVALID_SHIPMENT_ID", message: "Invalid shipment identifier." } },
+        { status: 400 }
+      );
+    return NextResponse.json(
+      { error: { code: "INTERNAL_SERVER_ERROR", message: "Shipment could not be deleted." } },
+      { status: 500 }
+    );
   }
 }
 
@@ -115,7 +131,13 @@ export async function PATCH(request: Request, { params }: RouteContext<"/api/shi
     }
     if (error instanceof ZodError || error instanceof SyntaxError) {
       return NextResponse.json(
-        { error: { code: "INVALID_PAYLOAD", message: "Review the Shipment fields.", fieldErrors: error instanceof ZodError ? error.flatten().fieldErrors : undefined } },
+        {
+          error: {
+            code: "INVALID_PAYLOAD",
+            message: "Review the Shipment fields.",
+            fieldErrors: error instanceof ZodError ? error.flatten().fieldErrors : undefined,
+          },
+        },
         { status: 400 }
       );
     }

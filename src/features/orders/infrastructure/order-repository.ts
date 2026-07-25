@@ -12,6 +12,7 @@ import {
   calculatePalletWeightSummary,
   estimatePalletCount,
 } from "@/features/orders/domain/pallets";
+import { areOrderExportFieldsAvailable } from "@/features/orders/lib/order-export-field-gate";
 import type { OrderAdminUpdateInput } from "@/features/orders/validation/order-schemas";
 
 const orderListSelect = {
@@ -73,6 +74,22 @@ const orderDetailSelect = {
       deliveryNumber: true,
       shipment: { select: { shipmentNumber: true } },
       pallets: { where: { deletedAt: null }, select: { actualWeight: true } },
+      orderLinks: {
+        select: {
+          orderId: true,
+          order: {
+            select: {
+              orderNumber: true,
+              purchaseOrderNumber: true,
+              grossWeightKg: true,
+              goodsIssueDate: true,
+              shipToNumber: true,
+              deletedAt: true,
+            },
+          },
+        },
+        orderBy: { order: { orderNumber: "asc" } },
+      },
     },
     orderBy: { deliveryNumber: "asc" },
   },
@@ -117,9 +134,10 @@ function toOrderListItem(order: OrderListRecord): OrderListItem {
   };
 }
 
-function toOrderDetail(order: OrderDetailRecord): OrderDetail {
+function toOrderDetail(order: OrderDetailRecord, purchaseOrderNumber: string | null): OrderDetail {
   return {
     ...toOrderListItem(order),
+    purchaseOrderNumber,
     createdAt: order.createdAt,
     createdByName: order.createdBy?.deletedAt === null ? order.createdBy.displayName : null,
     updatedAt: order.updatedAt,
@@ -138,6 +156,15 @@ function toOrderDetail(order: OrderDetailRecord): OrderDetail {
         palletStatus: summary.status,
         palletWeightStatus: summary.weightStatus,
         shipmentNumber: delivery.shipment?.shipmentNumber ?? null,
+        linkedOrders: delivery.orderLinks.map((link) => ({
+          orderNumber: link.order.orderNumber,
+          isPrimary: link.orderId === order.id,
+          purchaseOrderNumber: link.order.purchaseOrderNumber,
+          grossWeightKg: link.order.grossWeightKg?.toFixed(3) ?? null,
+          goodsIssueDate: link.order.goodsIssueDate,
+          shipToNumber: link.order.shipToNumber,
+          deletedAt: link.order.deletedAt,
+        })),
       };
     }),
   };
@@ -280,7 +307,16 @@ export async function getOrderById(id: string): Promise<OrderDetail | null> {
     select: orderDetailSelect,
   });
 
-  return order ? toOrderDetail(order) : null;
+  if (!order) return null;
+
+  const exportFields = areOrderExportFieldsAvailable()
+    ? await prisma.order.findFirst({
+        where: { id, deletedAt: null },
+        select: { purchaseOrderNumber: true },
+      })
+    : null;
+
+  return toOrderDetail(order, exportFields?.purchaseOrderNumber ?? null);
 }
 
 export async function getOrderByOrderNumber(orderNumber: string): Promise<OrderDetail | null> {
@@ -292,7 +328,16 @@ export async function getOrderByOrderNumber(orderNumber: string): Promise<OrderD
     select: orderDetailSelect,
   });
 
-  return order ? toOrderDetail(order) : null;
+  if (!order) return null;
+
+  const exportFields = areOrderExportFieldsAvailable()
+    ? await prisma.order.findFirst({
+        where: { orderNumber, deletedAt: null },
+        select: { purchaseOrderNumber: true },
+      })
+    : null;
+
+  return toOrderDetail(order, exportFields?.purchaseOrderNumber ?? null);
 }
 
 function toBusinessDate(value: string | null | undefined) {
@@ -313,6 +358,9 @@ function toManualOrderData(input: OrderAdminUpdateInput, actorId: string) {
     ...(input.routeCode !== undefined ? { routeCode: input.routeCode } : {}),
     ...(input.shippingPoint !== undefined ? { shippingPoint: input.shippingPoint } : {}),
     ...(input.grossWeightKg !== undefined ? { grossWeightKg: input.grossWeightKg } : {}),
+    ...(input.purchaseOrderNumber !== undefined
+      ? { purchaseOrderNumber: input.purchaseOrderNumber }
+      : {}),
     updatedById: actorId,
   };
 }

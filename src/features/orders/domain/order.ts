@@ -52,6 +52,7 @@ export type OrderListItem = {
 };
 
 export type OrderDetail = OrderListItem & {
+  purchaseOrderNumber: string | null;
   createdAt: Date;
   createdByName: string | null;
   updatedAt: Date;
@@ -65,6 +66,15 @@ export type OrderDetail = OrderListItem & {
     palletStatus: "awaitingActual" | "captured";
     palletWeightStatus: "awaiting" | "under" | "exact" | "over" | "unavailable";
     shipmentNumber: string | null;
+    linkedOrders: Array<{
+      orderNumber: string;
+      isPrimary: boolean;
+      purchaseOrderNumber: string | null;
+      grossWeightKg: string | null;
+      goodsIssueDate: Date | null;
+      shipToNumber: string | null;
+      deletedAt: Date | null;
+    }>;
   }>;
 };
 

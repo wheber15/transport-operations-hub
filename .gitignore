@@ -85,3 +85,14 @@ Thumbs.db
 # ============================================
 
 .vercel/
+
+# ============================================
+# Local validation and incident artefacts
+# ============================================
+
+.incident-evidence/
+.review-artifacts/
+.local-report-artifacts/
+.local-carrier-export-artifacts/
+.local-validation-data/
+.tmp-neon-*.ts

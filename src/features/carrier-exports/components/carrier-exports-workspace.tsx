@@ -3,7 +3,7 @@
 import { Download, FileSpreadsheet, Send, Sparkles } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { toast } from "sonner";
 
 import { EmptyState } from "@/components/shared/operations/empty-state";
@@ -122,7 +122,10 @@ export function CarrierExportsWorkspace({
   const [stage, setStage] = useState<"INITIAL" | "UPDATE" | "ADDITION">("INITIAL");
   const [preview, setPreview] = useState<Preview | null>(null);
   const [pending, setPending] = useState(false);
+  const [pendingSentId, setPendingSentId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const previewVersion = useRef(0);
+  const mutationLock = useRef(false);
 
   const request = { carrierId, goodsIssueDate, stage };
 
@@ -137,10 +140,15 @@ export function CarrierExportsWorkspace({
   };
 
   async function previewExport() {
+    if (mutationLock.current) return;
+    mutationLock.current = true;
+    const currentPreviewVersion = ++previewVersion.current;
     setPending(true);
     setError(null);
     try {
-      setPreview(await postJson<Preview>("/api/carrier-exports/preview", request));
+      const response = await postJson<Preview>("/api/carrier-exports/preview", request);
+      if (currentPreviewVersion !== previewVersion.current) return;
+      setPreview(response);
     } catch (requestError) {
       setPreview(null);
       setError(
@@ -150,10 +158,14 @@ export function CarrierExportsWorkspace({
       );
     } finally {
       setPending(false);
+      mutationLock.current = false;
     }
   }
 
   async function generate() {
+    if (mutationLock.current || !preview) return;
+    const currentPreviewVersion = previewVersion.current;
+    mutationLock.current = true;
     setPending(true);
     setError(null);
     try {
@@ -161,6 +173,7 @@ export function CarrierExportsWorkspace({
         "/api/carrier-exports",
         request
       );
+      if (currentPreviewVersion !== previewVersion.current) return;
       toast.success(`${result.filename} generated successfully.`);
       setPreview(null);
       router.refresh();
@@ -172,11 +185,13 @@ export function CarrierExportsWorkspace({
       );
     } finally {
       setPending(false);
+      mutationLock.current = false;
     }
   }
 
   async function markSent(id: string) {
-    setPending(true);
+    if (pendingSentId) return;
+    setPendingSentId(id);
     try {
       await postJson(`/api/carrier-exports/${id}/sent`, {});
       toast.success("Carrier Export marked as sent.");
@@ -188,7 +203,7 @@ export function CarrierExportsWorkspace({
           : "The Carrier Export could not be marked as sent."
       );
     } finally {
-      setPending(false);
+      setPendingSentId(null);
     }
   }
 
@@ -209,7 +224,9 @@ export function CarrierExportsWorkspace({
               <select
                 className="border-input bg-background h-9 rounded-md border px-2"
                 value={carrierId}
+                disabled={pending}
                 onChange={(event) => {
+                  previewVersion.current += 1;
                   setCarrierId(event.target.value);
                   setPreview(null);
                 }}
@@ -227,8 +244,10 @@ export function CarrierExportsWorkspace({
               <input
                 className="border-input bg-background h-9 rounded-md border px-2"
                 type="date"
+                disabled={pending}
                 value={goodsIssueDate}
                 onChange={(event) => {
+                  previewVersion.current += 1;
                   setGoodsIssueDate(event.target.value);
                   setPreview(null);
                 }}
@@ -239,6 +258,7 @@ export function CarrierExportsWorkspace({
               <select
                 className="border-input bg-background h-9 rounded-md border px-2"
                 value={stage}
+                disabled={pending}
                 onChange={(event) => {
                   setStage(event.target.value as typeof stage);
                   setPreview(null);
@@ -261,7 +281,7 @@ export function CarrierExportsWorkspace({
                 variant="outline"
               >
                 <Sparkles />
-                {pending ? "Preparing..." : "Preview export"}
+                {pending ? "Previewing…" : "Preview export"}
               </Button>
             </div>
           </div>
@@ -290,12 +310,13 @@ export function CarrierExportsWorkspace({
               </p>
             </div>
             <Button
+              aria-busy={pending}
               disabled={pending || preview.exportRows.length === 0}
               onClick={generate}
               type="button"
             >
               <FileSpreadsheet />
-              Generate XLSX
+              {pending ? "Generating XLSX…" : "Generate XLSX"}
             </Button>
           </div>
           <dl className="border-border/80 grid grid-cols-2 gap-3 border-b p-5 md:grid-cols-4">
@@ -476,14 +497,15 @@ export function CarrierExportsWorkspace({
                         ) : null}
                         {canMarkSent && run.status === "GENERATED" ? (
                           <Button
-                            disabled={pending}
+                            aria-busy={pendingSentId === run.id}
+                            disabled={pendingSentId !== null}
                             onClick={() => markSent(run.id)}
                             size="xs"
                             type="button"
                             variant="outline"
                           >
                             <Send />
-                            Mark sent
+                            {pendingSentId === run.id ? "Marking sent…" : "Mark sent"}
                           </Button>
                         ) : null}
                       </div>

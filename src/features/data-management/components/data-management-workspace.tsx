@@ -127,6 +127,8 @@ function displayCell(value: string | null | undefined) {
 export function DataManagementWorkspace({ batches }: { batches: Batch[] }) {
   const input = useRef<HTMLInputElement>(null);
   const workflowVersion = useRef(0);
+  const previewVersion = useRef(0);
+  const mutationLock = useRef(false);
   const [file, setFile] = useState<File | null>(null);
   const [type, setType] = useState<ActiveBatch["importType"]>("deliveryReference");
   const [active, setActive] = useState<ActiveBatch | null>(null);
@@ -164,7 +166,12 @@ export function DataManagementWorkspace({ batches }: { batches: Batch[] }) {
     id: string,
     view: "raw" | "preview",
     page = 1,
-    options?: { query?: string; classification?: string; pageSize?: number }
+    options?: {
+      query?: string;
+      classification?: string;
+      pageSize?: number;
+      previewVersion?: number;
+    }
   ) {
     const search = new URLSearchParams({
       view,
@@ -179,10 +186,12 @@ export function DataManagementWorkspace({ batches }: { batches: Batch[] }) {
       { method: "GET" }
     );
     if (view === "raw") setRawPreview(data as RawPreview);
-    else setPreview(data as EnhancedPreview);
+    else if (!options?.previewVersion || options.previewVersion === previewVersion.current)
+      setPreview(data as EnhancedPreview);
   }
   async function upload() {
-    if (!file) return;
+    if (!file || mutationLock.current) return;
+    mutationLock.current = true;
     const version = ++workflowVersion.current;
     setBusy(true);
     setMessage(null);
@@ -208,7 +217,9 @@ export function DataManagementWorkspace({ batches }: { batches: Batch[] }) {
       setRawPreview(null);
       setPreview(null);
       if (batch.importType === "sapOrderBook") {
-        setMessage("SAP Order Book staged. Select the Intended Goods Issue Date before previewing.");
+        setMessage(
+          "SAP Order Book staged. Select the Intended Goods Issue Date before previewing."
+        );
       } else {
         setMessage("Workbook staged. Select the sheet that contains the operational table.");
       }
@@ -216,10 +227,13 @@ export function DataManagementWorkspace({ batches }: { batches: Batch[] }) {
       setMessage(error instanceof Error ? error.message : "Upload failed.");
     } finally {
       setBusy(false);
+      mutationLock.current = false;
     }
   }
   async function previewSapOrderBook() {
-    if (!active || !intendedGoodsIssueDate) return;
+    if (!active || !intendedGoodsIssueDate || mutationLock.current) return;
+    mutationLock.current = true;
+    const currentPreviewVersion = ++previewVersion.current;
     setBusy(true);
     try {
       const data = await dataImportRequest<{ status: string }>(dataImportPaths.preview(active.id), {
@@ -231,14 +245,21 @@ export function DataManagementWorkspace({ batches }: { batches: Batch[] }) {
           reason: dateMismatchReason,
         }),
       });
-      await loadRows(active.id, "preview", 1, { pageSize: 20 });
+      await loadRows(active.id, "preview", 1, {
+        pageSize: 20,
+        previewVersion: currentPreviewVersion,
+      });
+      if (currentPreviewVersion !== previewVersion.current) return;
       setActive({ ...active, status: data.status });
       setConfirmed(false);
-      setMessage("Preview is ready. Review SAP and operational Goods Issue Dates before confirming.");
+      setMessage(
+        "Preview is ready. Review SAP and operational Goods Issue Dates before confirming."
+      );
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "Preview failed.");
     } finally {
       setBusy(false);
+      mutationLock.current = false;
     }
   }
   async function chooseSheet(sheetName: string) {
@@ -287,7 +308,10 @@ export function DataManagementWorkspace({ batches }: { batches: Batch[] }) {
     }
   }
   async function saveAndPreview() {
-    if (!active || !active.selectedHeaderRow || !active.selectedSheetName) return;
+    if (!active || !active.selectedHeaderRow || !active.selectedSheetName || mutationLock.current)
+      return;
+    mutationLock.current = true;
+    const currentPreviewVersion = ++previewVersion.current;
     setBusy(true);
     try {
       await dataImportRequest(dataImportPaths.mapping(active.id), {
@@ -303,7 +327,11 @@ export function DataManagementWorkspace({ batches }: { batches: Batch[] }) {
       const data = await dataImportRequest<{ status: string }>(dataImportPaths.preview(active.id), {
         method: "POST",
       });
-      await loadRows(active.id, "preview", 1, { pageSize: 20 });
+      await loadRows(active.id, "preview", 1, {
+        pageSize: 20,
+        previewVersion: currentPreviewVersion,
+      });
+      if (currentPreviewVersion !== previewVersion.current) return;
       setActive({ ...active, status: data.status });
       setConfirmed(false);
       setMessage("Preview is ready. Review row classifications before confirming the import.");
@@ -311,11 +339,14 @@ export function DataManagementWorkspace({ batches }: { batches: Batch[] }) {
       setMessage(error instanceof Error ? error.message : "Preview failed.");
     } finally {
       setBusy(false);
+      mutationLock.current = false;
     }
   }
   async function commit() {
-    if (!active || !confirmed) return;
+    if (!active || !confirmed || mutationLock.current) return;
+    mutationLock.current = true;
     setBusy(true);
+    setMessage("Importing operational records. Please keep this page open.");
     try {
       if (process.env.NODE_ENV === "development")
         console.info("[data-import] commit button clicked");
@@ -346,6 +377,7 @@ export function DataManagementWorkspace({ batches }: { batches: Batch[] }) {
       setMessage(error instanceof Error ? error.message : "Commit failed.");
     } finally {
       setBusy(false);
+      mutationLock.current = false;
     }
   }
   return (
@@ -383,21 +415,23 @@ export function DataManagementWorkspace({ batches }: { batches: Batch[] }) {
               onChange={(event) => setFile(event.target.files?.[0] ?? null)}
               ref={input}
               type="file"
+              disabled={busy}
             />
           </label>
           <select
             aria-label="Import type"
             className="border-input bg-background h-11 rounded-md border px-3 text-sm"
             onChange={(event) => setType(event.target.value as ActiveBatch["importType"])}
+            disabled={busy}
             value={type}
           >
             <option value="deliveryReference">Delivery reference import</option>
             <option value="operationalSchedule">Operational schedule import</option>
             <option value="sapOrderBook">SAP Order Book</option>
           </select>
-          <Button disabled={!file || busy} onClick={upload} type="button">
+          <Button aria-busy={busy} disabled={!file || busy} onClick={upload} type="button">
             <Upload aria-hidden="true" />
-            {busy ? "Staging…" : "Upload and stage"}
+            {busy ? "Uploading…" : "Upload and stage"}
           </Button>
         </div>
         {message ? (
@@ -434,24 +468,61 @@ export function DataManagementWorkspace({ batches }: { batches: Batch[] }) {
             <section className="border-border rounded-xl border p-5">
               <h2 className="font-semibold">2. Confirm Intended Goods Issue Date</h2>
               <p className="text-muted-foreground mt-1 text-sm">
-                AXon preserves the source SAP date and uses this planner-selected date operationally when a mismatch is acknowledged.
+                AXon preserves the source SAP date and uses this planner-selected date operationally
+                when a mismatch is acknowledged.
               </p>
               <div className="mt-4 grid max-w-xl gap-3">
                 <label className="grid gap-1 text-sm font-medium">
                   Intended Goods Issue Date
-                  <input className="border-input bg-background h-10 rounded-md border px-3" onChange={(event) => setIntendedGoodsIssueDate(event.target.value)} type="date" value={intendedGoodsIssueDate} />
+                  <input
+                    className="border-input bg-background h-10 rounded-md border px-3"
+                    disabled={busy}
+                    onChange={(event) => {
+                      previewVersion.current += 1;
+                      setIntendedGoodsIssueDate(event.target.value);
+                    }}
+                    type="date"
+                    value={intendedGoodsIssueDate}
+                  />
                 </label>
                 <label className="flex items-start gap-2 text-sm">
-                  <input checked={acknowledgeDateMismatch} onChange={(event) => setAcknowledgeDateMismatch(event.target.checked)} type="checkbox" />
+                  <input
+                    checked={acknowledgeDateMismatch}
+                    disabled={busy}
+                    onChange={(event) => {
+                      previewVersion.current += 1;
+                      setAcknowledgeDateMismatch(event.target.checked);
+                    }}
+                    type="checkbox"
+                  />
                   I acknowledge SAP date mismatches for this batch.
                 </label>
                 {acknowledgeDateMismatch ? (
                   <label className="grid gap-1 text-sm font-medium">
                     Acknowledgement reason
-                    <input className="border-input bg-background h-10 rounded-md border px-3" onChange={(event) => setDateMismatchReason(event.target.value)} value={dateMismatchReason} />
+                    <input
+                      className="border-input bg-background h-10 rounded-md border px-3"
+                      disabled={busy}
+                      onChange={(event) => {
+                        previewVersion.current += 1;
+                        setDateMismatchReason(event.target.value);
+                      }}
+                      value={dateMismatchReason}
+                    />
                   </label>
                 ) : null}
-                <Button disabled={busy || !intendedGoodsIssueDate || (acknowledgeDateMismatch && !dateMismatchReason.trim())} onClick={previewSapOrderBook} type="button">Generate preview</Button>
+                <Button
+                  aria-busy={busy}
+                  disabled={
+                    busy ||
+                    !intendedGoodsIssueDate ||
+                    (acknowledgeDateMismatch && !dateMismatchReason.trim())
+                  }
+                  onClick={previewSapOrderBook}
+                  type="button"
+                >
+                  {busy ? "Generating preview…" : "Generate preview"}
+                </Button>
               </div>
             </section>
           ) : null}
@@ -732,6 +803,7 @@ export function DataManagementWorkspace({ batches }: { batches: Batch[] }) {
                   <label className="flex items-start gap-3 text-sm">
                     <input
                       checked={confirmed}
+                      disabled={busy}
                       className="mt-1 size-4"
                       onChange={(event) => setConfirmed(event.target.checked)}
                       type="checkbox"
@@ -751,11 +823,12 @@ export function DataManagementWorkspace({ batches }: { batches: Batch[] }) {
                   ) : null}
                   <Button
                     className="mt-4"
+                    aria-busy={busy}
                     disabled={!confirmed || actionable === 0 || busy}
                     onClick={commit}
                     type="button"
                   >
-                    <CheckCircle2 aria-hidden="true" /> Confirm import
+                    <CheckCircle2 aria-hidden="true" /> {busy ? "Importing…" : "Confirm import"}
                   </Button>
                 </div>
               ) : (
@@ -836,7 +909,12 @@ function PreviewSummary({
   importType: ActiveBatch["importType"];
 }) {
   const count = (classification: string) => counts[classification] ?? 0;
-  const updates = count("validUpdate") + count("readyToUpdate") + count("readyToCreate") + count("readyToUpdateWithDateOverride") + count("readyToCreateWithDateOverride");
+  const updates =
+    count("validUpdate") +
+    count("readyToUpdate") +
+    count("readyToCreate") +
+    count("readyToUpdateWithDateOverride") +
+    count("readyToCreateWithDateOverride");
   const unchanged = count("unchanged") + count("unchangedWithDateOverride");
   const invalid =
     count("invalidIdentifier") +
